@@ -9,8 +9,7 @@ import 'package:manager/screens/main_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final bool auth;
-  final Future<dynamic> Function(
-      {String username, String password, String? uid}) login;
+  final Future<dynamic> Function({String username, String password}) login;
 
   const LoginScreen({super.key, required this.auth, required this.login});
 
@@ -34,16 +33,15 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     String username = '';
     String password = '';
-    String? uid;
+    User? user;
     if (_loggedIn & (FirebaseAuth.instance.currentUser != null)) {
-      User user = FirebaseAuth.instance.currentUser!;
-      uid = user.uid;
+      user = FirebaseAuth.instance.currentUser!;
     } else {
       username = _usernameControl.text;
       password = _passwordControl.text;
     }
     if (widget.auth & !_loggedIn) {
-      widget.login(username: username, password: password, uid: uid);
+      widget.login(username: username, password: password);
     }
     return Padding(
       padding: const EdgeInsets.fromLTRB(20.0, 0, 20, 0),
@@ -178,18 +176,10 @@ class _LoginScreenState extends State<LoginScreen> {
             height: 50.0,
             child: TextButton(
               onPressed: () {
-                String username = '';
-                String password = '';
-                String? uid;
-                if (_loggedIn & (FirebaseAuth.instance.currentUser != null)) {
-                  User user = FirebaseAuth.instance.currentUser!;
-                  uid = user.uid;
-                } else {
-                  username = _usernameControl.text;
-                  password = _passwordControl.text;
-                }
                 widget
-                    .login(username: username, password: password, uid: uid)
+                    .login(
+                        username: _usernameControl.text,
+                        password: _passwordControl.text)
                     .then((value) {
                   setState(() {
                     _loggedIn = true;

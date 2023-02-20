@@ -1,17 +1,12 @@
-// ignore_for_file: unnecessary_brace_in_string_interps
-
-import 'dart:math';
-
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:manager/apis/api.dart';
 import 'package:manager/interfaces/item.dart';
 import 'package:manager/interfaces/menu_list.dart';
 import 'package:lottie/lottie.dart';
-import 'package:manager/screens/add_new_product.dart';
+import 'package:manager/screens/product.dart';
 import 'package:manager/screens/add_new_type.dart';
 import 'package:manager/widgets/alerts.dart';
 import 'package:manager/widgets/badge.dart';
@@ -22,18 +17,18 @@ class ShopManager extends StatefulWidget {
       required this.shopName,
       required this.menuList,
       required this.menuTypeList,
-      required this.shopKey,
       required this.updateMenuType,
       required this.deleteMenuType,
+      required this.afterUpdate,
       this.receptionToken,
       this.chefToken});
 
   final String shopName;
   final MenuList menuList;
   final List<String> menuTypeList;
-  final String shopKey;
   final void Function(String, String) updateMenuType;
   final void Function(String, String) deleteMenuType;
+  final void Function(String) afterUpdate;
   final String? receptionToken;
   final String? chefToken;
 
@@ -52,24 +47,27 @@ class _ShopManagerState extends State<ShopManager>
   bool _editing = false;
   Map<String, List<Item>> needUpdateObj = {};
   late MenuList menuList;
-  Map<String, String> latestId = {};
+  Map<String, int> latestId = {};
   bool _saving = false;
   final GlobalKey<ScaffoldState> _key = GlobalKey();
   Map<String, String?> posToken = {};
+  bool _deleting = false;
 
   @override
   void initState() {
     super.initState();
+    api.getShopMenu(
+        uid: FirebaseAuth.instance.currentUser!.uid, shopName: widget.shopName);
     Map<String, List<Item>> tempObj = {};
+    Map<String, int> id = {};
     for (var type in widget.menuTypeList) {
-      tempObj[type] = [];
-      api.genNewId(widget.shopKey, type).then((value) => setState(() {
-            latestId[type] = value;
-          }));
+      id[type] = widget.menuList.menu[type]!.length;
     }
-    print(tempObj);
     setState(() {
-      _selectedType = widget.menuTypeList.first;
+      latestId = id;
+      if (widget.menuTypeList.isNotEmpty) {
+        _selectedType = widget.menuTypeList.first;
+      }
       _menuTypeButtons = createMenuTypeButtons();
       needUpdateObj = tempObj;
       menuList = initMenu();
@@ -89,14 +87,16 @@ class _ShopManagerState extends State<ShopManager>
   }
 
   Future<bool> setNewType(String typeName) async {
-    widget.updateMenuType(widget.shopKey, typeName);
-    await api.setNewType(widget.shopKey, typeName);
+    widget.updateMenuType(widget.shopName, typeName);
+    await api.setNewType(
+        FirebaseAuth.instance.currentUser!.uid, widget.shopName, typeName);
     while (true) {
       if (widget.menuTypeList.contains(typeName)) {
         print('finished!');
         setState(() {
-          latestId[typeName] = 0.toString();
+          latestId[typeName] = 0;
           menuList.menu[typeName] = [];
+          _selectedType = typeName;
         });
         return true;
       }
@@ -176,12 +176,21 @@ class _ShopManagerState extends State<ShopManager>
               onPressed: () {
                 // Perform delete action
                 if (_selectedType != null) {
+                  setState(() {
+                    _deleting = true;
+                  });
                   api
-                      .deleteType(widget.shopKey, _selectedType!)
+                      .deleteType(FirebaseAuth.instance.currentUser!.uid,
+                          widget.shopName, _selectedType!)
                       .whenComplete(() {
-                    widget.deleteMenuType(widget.shopKey, _selectedType!);
+                    widget.deleteMenuType(widget.shopName, _selectedType!);
                     setState(() {
-                      _selectedType = widget.menuTypeList.first;
+                      _deleting = false;
+                      if (widget.menuTypeList.isNotEmpty) {
+                        _selectedType = widget.menuTypeList.first;
+                      } else {
+                        _selectedType = null;
+                      }
                     });
                   });
                 }
@@ -264,6 +273,8 @@ class _ShopManagerState extends State<ShopManager>
       widgets = ListView.builder(
           itemCount: menuList.menu[_selectedType]!.length,
           itemBuilder: ((BuildContext context, int index) {
+            Item item = menuList.menu[_selectedType]![index];
+            print('item-${item.name}: ${item.available}');
             return Container(
                 margin:
                     const EdgeInsets.only(left: 5, top: 5, bottom: 5, right: 5),
@@ -275,12 +286,16 @@ class _ShopManagerState extends State<ShopManager>
                   child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        menuList.menu[_selectedType]![index].bytes != null
+                        item.bytes != null
                             ? Image.memory(
-                                menuList.menu[_selectedType]![index].bytes!,
+                                item.bytes!,
                                 width: imgSize,
                                 height: imgSize,
                                 fit: BoxFit.cover,
+                                color: item.available ? null : Colors.grey,
+                                colorBlendMode: item.available
+                                    ? null
+                                    : BlendMode.saturation,
                               )
                             : CachedNetworkImage(
                                 width: imgSize,
@@ -288,6 +303,10 @@ class _ShopManagerState extends State<ShopManager>
                                 fit: BoxFit.cover,
                                 imageUrl:
                                     menuList.menu[_selectedType]![index].image,
+                                color: item.available ? null : Colors.grey,
+                                colorBlendMode: item.available
+                                    ? null
+                                    : BlendMode.saturation,
                               ),
                         Text(
                           menuList.menu[_selectedType]![index].name,
@@ -323,44 +342,45 @@ class _ShopManagerState extends State<ShopManager>
     }
     setState(() {
       menuList.menu[type] = itemList;
-      for (var food in widget.menuList.menu['Food2']!) {
-        print('${food.id}, ${food.name}, ${food.price}');
-      }
-      for (var food in menuList.menu['Food2']!) {
-        print('${food.id}, ${food.name}, ${food.price}');
-      }
     });
   }
 
-  Future<void> saveProduct(String type, String name, String price,
-      {Uint8List? image, String? url, String? id}) async {
-    print('saveNewProduct: $type, $name, $price, $image, $url, $id');
-    var key = widget.shopKey.substring(0, 5);
+  Future<void> saveProduct(
+      {required String type,
+      required String name,
+      required double price,
+      required double time,
+      required bool available,
+      Uint8List? image,
+      String? url,
+      String? id}) async {
     bool exist = true;
     if (id == null) {
-      print('is exist');
       exist = false;
       if (latestId[type] != null) {
-        print('not null');
         id = '$type-${latestId[type]}';
-        print(latestId[type]);
-        double newId = double.parse(latestId[type]!) + 1;
-        print(newId);
+        int newId = latestId[type]! + 1;
         setState(() {
-          latestId[type] = newId.toString();
+          latestId[type] = newId;
         });
       } else {
         print('Error: lastest[$type] is null.');
       }
     }
-    print('exist = $exist');
     late String imageUrl;
     if (url == null) {
       imageUrl = '';
     } else {
       imageUrl = url;
     }
-    Item newItem = Item(name, price, imageUrl, id!, bytes: image);
+    Item newItem = Item(
+        name: name,
+        price: price,
+        time: time,
+        image: imageUrl,
+        id: id!,
+        bytes: image,
+        available: available);
     List<Item> updateList = needUpdateObj[type] ?? [];
     int? index = newItem.idIn(updateList);
     print(index);
@@ -385,7 +405,9 @@ class _ShopManagerState extends State<ShopManager>
   }
 
   Future<void> updateFirebase() async {
-    if (await api.updateStorageData(widget.shopKey, needUpdateObj)) {
+    if (await api.updateStorageData(widget.shopName,
+        FirebaseAuth.instance.currentUser!.uid, needUpdateObj)) {
+      widget.afterUpdate(widget.shopName);
       setState(() {
         _editing = false;
       });
@@ -443,9 +465,10 @@ class _ShopManagerState extends State<ShopManager>
             ),
             ListTile(
               onTap: () {
-                /* setState(() {
+                Navigator.of(context).pop();
+                setState(() {
                   _editing = true;
-                }); */
+                });
               },
               leading: IconBadge(
                 icon: Icons.edit,
@@ -459,8 +482,9 @@ class _ShopManagerState extends State<ShopManager>
             ListTile(
               onTap: posToken['Reception'] == null
                   ? () async {
-                      String token =
-                          await api.generateToken(shopKey: widget.shopKey);
+                      String token = await api.generateToken(
+                          shopName: widget.shopName,
+                          uid: FirebaseAuth.instance.currentUser!.uid);
                       setState(() {
                         posToken['Reception'] = token;
                       });
@@ -482,7 +506,9 @@ class _ShopManagerState extends State<ShopManager>
               onTap: posToken['Chef'] == null
                   ? () async {
                       String token = await api.generateToken(
-                          shopKey: widget.shopKey, mode: 'Chef');
+                          shopName: widget.shopName,
+                          uid: FirebaseAuth.instance.currentUser!.uid,
+                          mode: 'Chef');
                       setState(() {
                         posToken['Chef'] = token;
                       });
@@ -589,7 +615,7 @@ class _ShopManagerState extends State<ShopManager>
                 ),
         ],
       ),
-      body: (_selectedType != null) & _ready
+      body: (_ready & !_saving & !_deleting)
           ? _bodies
           : Center(
               child:

@@ -7,8 +7,9 @@ import 'package:provider/provider.dart';
 import 'package:manager/providers/app_provider.dart';
 import 'package:manager/screens/splash.dart';
 import 'package:manager/util/const.dart';
-
 import 'package:firebase_core/firebase_core.dart';
+import 'package:google_maps_flutter_platform_interface/google_maps_flutter_platform_interface.dart';
+import 'package:google_maps_flutter_android/google_maps_flutter_android.dart';
 import 'firebase_options.dart';
 
 const bool USE_EMULATOR = false;
@@ -16,10 +17,17 @@ const bool USE_EMULATOR = false;
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  await FirebaseAppCheck.instance
-      .activate(androidProvider: AndroidProvider.playIntegrity);
+  /* await FirebaseAppCheck.instance
+      .activate(androidProvider: AndroidProvider.playIntegrity); */
   if (USE_EMULATOR) {
     await _connectToFirebaseEmulator();
+  }
+
+  final GoogleMapsFlutterPlatform mapsImplementation =
+      GoogleMapsFlutterPlatform.instance;
+  print('platform: $mapsImplementation');
+  if (mapsImplementation is GoogleMapsFlutterAndroid) {
+    mapsImplementation.useAndroidViewSurface = true;
   }
 
   runApp(

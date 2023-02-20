@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:manager/apis/api.dart';
+import 'package:manager/interfaces/register.dart';
 import 'package:manager/screens/main_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   final bool auth;
+  final Future<RegisterResult> Function(
+      {String username,
+      String email,
+      String password,
+      String phoneNumber}) register;
 
-  const RegisterScreen({super.key, required this.auth});
+  const RegisterScreen({super.key, required this.auth, required this.register});
 
   @override
   _RegisterScreenState createState() => _RegisterScreenState();
@@ -16,6 +22,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _usernameControl = TextEditingController();
   final TextEditingController _emailControl = TextEditingController();
   final TextEditingController _passwordControl = TextEditingController();
+  final TextEditingController _phoneNumberControl = TextEditingController();
   final API api = API();
 
   @override
@@ -173,6 +180,50 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 10.0),
+          Card(
+            elevation: 3.0,
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.all(
+                  Radius.circular(5.0),
+                ),
+              ),
+              child: TextField(
+                style: const TextStyle(
+                  fontSize: 15.0,
+                  color: Colors.black,
+                ),
+                decoration: InputDecoration(
+                  contentPadding: const EdgeInsets.all(10.0),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(5.0),
+                    borderSide: const BorderSide(
+                      color: Colors.white,
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: const BorderSide(
+                      color: Colors.white,
+                    ),
+                    borderRadius: BorderRadius.circular(5.0),
+                  ),
+                  hintText: "Phone (PromptPay)",
+                  prefixIcon: const Icon(
+                    Icons.phone,
+                    color: Colors.black,
+                  ),
+                  hintStyle: const TextStyle(
+                    fontSize: 15.0,
+                    color: Colors.black,
+                  ),
+                ),
+                maxLines: 1,
+                controller: _phoneNumberControl,
+              ),
+            ),
+          ),
           const SizedBox(height: 40.0),
           Container(
             decoration: BoxDecoration(
@@ -182,10 +233,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
             height: 50.0,
             child: TextButton(
               onPressed: () {
-                api
+                widget
                     .register(
                         username: _usernameControl.text,
-                        password: _passwordControl.text)
+                        password: _passwordControl.text,
+                        email: _emailControl.text,
+                        phoneNumber: _phoneNumberControl.text)
                     .then((value) {
                   print(value);
                 });

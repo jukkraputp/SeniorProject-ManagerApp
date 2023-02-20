@@ -1,8 +1,9 @@
+import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
+
 class User {
-  String username = '';
   List<String> shopList = [];
   String? receptionToken;
   String? chefToken;
 
-  User(this.username, this.shopList, {this.receptionToken, this.chefToken});
+  User(this.shopList, {this.receptionToken, this.chefToken});
 }

@@ -1,6 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
-import 'dart:isolate';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:manager/interfaces/omise.dart';
+import 'package:manager/interfaces/order.dart' as food_order;
 import 'package:manager/interfaces/register.dart';
 import 'package:manager/interfaces/shop_info.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -16,7 +15,7 @@ import 'package:manager/interfaces/history.dart';
 import 'package:manager/interfaces/item.dart';
 import 'package:manager/interfaces/menu_list.dart';
 import 'package:http/http.dart' as http;
-import 'package:manager/interfaces/manager/user.dart' as AppUser;
+import 'package:manager/interfaces/manager/user.dart' as manager_user;
 
 const String backendUrl = 'http://jukkraputp.sytes.net';
 
@@ -26,9 +25,57 @@ class API {
 
   // Firestore Database
 
-  /* Future<String> getToken(String) async {
-    return
-  } */
+  Future<MenuList> getShopMenu(
+      {required String uid, required String shopName}) async {
+    List<String> types = await getShopTypes(uid, shopName);
+    MenuList menuList = MenuList(typesList: types);
+    for (var type in types) {
+      QuerySnapshot<Map<String, dynamic>> querySnapshot = await _firestoreDB
+          .collection('Menu')
+          .doc('$uid-$shopName')
+          .collection(type)
+          .get();
+      for (var doc in querySnapshot.docs) {
+        menuList.menu[type]!.add(Item(
+            name: doc['name'],
+            price: doc['price'],
+            time: doc['time'],
+            image: doc['image'],
+            id: doc['id'],
+            available: doc['available']));
+      }
+    }
+    return menuList;
+  }
+
+  Future<List<String>> getShopTypes(String uid, String shopName) async {
+    DocumentSnapshot<Map<String, dynamic>> documentSnapshot =
+        await _firestoreDB.collection('Menu').doc('$uid-$shopName').get();
+    List<String> types = [];
+    if (documentSnapshot.exists) {
+      var data = documentSnapshot.data();
+      List<String> typeList = [];
+      for (var type in data?['types'] ?? []) {
+        typeList.add(type.toString());
+      }
+      types = typeList;
+    }
+    return types;
+  }
+
+  Future<getEmailResult> getEmail(String username, String password) async {
+    QuerySnapshot<Map<String, dynamic>> querySnapshot = await _firestoreDB
+        .collection('Manager')
+        .where('username', isEqualTo: username)
+        .where('password', isEqualTo: password)
+        .get();
+    if (querySnapshot.size < 1) {
+      return getEmailResult(success: false, message: 'not found');
+    } else {
+      var data = querySnapshot.docs.first.data();
+      return getEmailResult(success: true, data: data);
+    }
+  }
 
   Future<String?> getShopName(String key) async {
     DocumentSnapshot<Map<String, dynamic>> docSnapshot =
@@ -39,14 +86,22 @@ class API {
     return null;
   }
 
-  Future<List<Object?>> getShopList() async {
-    QuerySnapshot querySnapshot =
-        await _firestoreDB.collection('ShopList').get();
+  Future<List<Object?>> getShopList(String? uid) async {
+    late QuerySnapshot querySnapshot;
+    if (uid != null) {
+      querySnapshot = await _firestoreDB
+          .collection('ShopList')
+          .where('uid', isEqualTo: uid)
+          .get();
+    } else {
+      querySnapshot = await _firestoreDB.collection('ShopList').get();
+    }
+
     var shopList = querySnapshot.docs.map((doc) => doc.data()).toList();
     return shopList;
   }
 
-  Future<String?> getShopKey(String token) async {
+  Future<String?> getshopName(String token) async {
     try {
       var doc = await _firestoreDB.collection('TokenList').doc(token).get();
       return doc.data()?['key'];
@@ -65,9 +120,9 @@ class API {
   }
 
   /// Set Name and Price of MenuList object.
-  Future<MenuList> setNameAndPrice(
-      String key, MenuList menuList, ListResult types) async {
-    var ref = _firestoreDB.collection('Menu').doc(key);
+  Future<MenuList> setProductDetails(
+      String uid, String shopName, MenuList menuList, ListResult types) async {
+    var ref = _firestoreDB.collection('Menu').doc('$uid-$shopName');
     for (var typeRef in types.prefixes) {
       var type = typeRef.name;
       var querySnapshot = await ref.collection(type).get();
@@ -79,19 +134,21 @@ class API {
         var id = element.id;
         if (infoMap.containsKey(id)) {
           element.name = infoMap[id]?['name'];
-          element.price = '${infoMap[id]?['price']}';
+          element.price = infoMap[id]?['price'];
+          element.time = infoMap[id]?['time'];
         }
       });
     }
     return menuList;
   }
 
-  Future<History> getHistory(String shopKey, String orderDocId) async {
+  Future<History> getHistory(
+      String shopName, String phoneNumber, String orderDocId) async {
     DateTime today = DateTime.now();
     String id = '${today.year}${today.month}${today.day}';
     var ref = _firestoreDB
         .collection('History')
-        .doc(shopKey)
+        .doc('$shopName-$phoneNumber')
         .collection(id)
         .doc(orderDocId);
     var doc = await ref.get();
@@ -104,11 +161,15 @@ class API {
     return history;
   }
 
-  Future<List<History>> getHistoryList(String shopKey) async {
+  Future<List<History>> getHistoryList(
+      String shopName, String phoneNumber) async {
     final List<History> historyList = [];
     DateTime today = DateTime.now();
     String id = '${today.year}${today.month}${today.day}';
-    var ref = _firestoreDB.collection('History').doc(shopKey).collection(id);
+    var ref = _firestoreDB
+        .collection('History')
+        .doc('$shopName-$phoneNumber')
+        .collection(id);
     var datas = await ref.get();
     for (var doc in datas.docs) {
       var data = doc.data();
@@ -124,114 +185,88 @@ class API {
 
   // Storage
 
-  Future<TaskSnapshot> deleteType(String key, String typeName) async {
-    String shopName = key.split('_').first;
-    return await _storage
-        .ref()
-        .child('$shopName/$typeName/not-in-use.txt')
-        .putString('this folder is unused');
+  Future<http.Response> deleteType(
+      String uid, String shopName, String typeName) async {
+    try {
+      await _storage
+          .ref()
+          .child('$uid-$shopName/$typeName/not-in-use.txt')
+          .putString('this folder is unused');
+    } catch (e) {
+      print('firebase storage error: $e');
+    }
+    http.Response res = await http.post(
+        Uri.parse('$backendUrl:7777/delete-type'),
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8'
+        },
+        body:
+            json.encode({'uid': uid, 'shopName': shopName, 'type': typeName}));
+    return res;
   }
 
-  Future<TaskSnapshot> setNewType(String key, String typeName) async {
-    String shopName = key.split('_').first;
+  Future<http.Response> setNewType(
+      String uid, String shopName, String typeName) async {
     try {
-      await _storage.ref().child('$shopName/$typeName/not-in-use.txt').delete();
+      var ref = _storage.ref().child('$uid-$shopName/$typeName/not-in-use.txt');
+      if (await ref.getData() != null) {
+        await ref.delete();
+      }
+      await _storage
+          .ref()
+          .child('$uid-$shopName/$typeName/foo.txt')
+          .putString('foo file');
     } catch (e) {
       print('API setNewType: $e');
     }
-    return await _storage
-        .ref()
-        .child('$shopName/$typeName/foo.txt')
-        .putString('foo file');
-  }
-
-  Future<String> getImage(String key, String type, String name) async {
-    var imageURL =
-        await _storage.ref().child('$key/$type/$name.jpg').getDownloadURL();
-    return imageURL;
-  }
-
-  Future<MenuList> getMenuList(String shopName) async {
-    print('getting menuList');
-    var shopRef = _storage.ref().child(shopName);
-    var types = await shopRef.listAll();
-    MenuList result = MenuList(types: types);
-    for (var typeRef in types.prefixes) {
-      result.menu[typeRef.name] = [];
-      var images = await typeRef.listAll();
-      var imagesRefList = images.items;
-      imagesRefList.sort(((a, b) => a.name
-          .substring(a.name.length - 6, a.name.length - 4)
-          .compareTo(b.name.substring(b.name.length - 6, b.name.length - 4))));
-      for (var imageRef in imagesRefList) {
-        if (imageRef.name.contains('not-in-use')) {
-          result.menu.remove(typeRef.name);
-          break;
-        }
-        var url = await imageRef.getDownloadURL();
-        if (url.contains('.jpg')) {
-          Item newItem = Item('', '', url,
-              imageRef.name.substring(0, imageRef.name.length - 4));
-          result.menu[typeRef.name]?.add(newItem);
-        }
-      }
-    }
-    await setNameAndPrice(shopName, result, types);
-    return result;
-  }
-
-  // gen new id by searching on storage
-  Future<String> genNewId(String key, String type) async {
-    key = key.split('_').first;
-    print('genNewId: $key, $type');
-    var typeRef = _storage.ref().child(key).child(type);
-    final items = await typeRef.listAll();
-    final itemsRefList = items.items;
-    itemsRefList.sort(((a, b) => a.name
-        .substring(a.name.length - 6, a.name.length - 4)
-        .compareTo(b.name.substring(b.name.length - 6, b.name.length - 4))));
-    if (itemsRefList.isNotEmpty) {
-      var foodId = itemsRefList.last.name
-          .substring(0, itemsRefList.last.name.length - 4);
-      late String lastId;
-      lastId = foodId.split('-').last;
-      if (lastId == 'foo') {
-        lastId = '-1';
-      }
-      return (double.parse(lastId) + 1).toString();
-    }
-    return '';
-  }
-
-  /* Future<String> genImageUrl(Uint8List image) async {
-    late String res;
-    final Reference ref = _storage.ref().child('genUrl').child('tempImg.png');
-    res = await ref.putData(image).then((p0) async {
-      res = await ref.getDownloadURL();
-      return res;
-    });
+    http.Response res = await http.post(Uri.parse('$backendUrl:7777/add-type'),
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8'
+        },
+        body:
+            json.encode({'uid': uid, 'shopName': shopName, 'type': typeName}));
     return res;
-  } */
+  }
 
   // Through backend server
 
+  // add shop
+  Future<http.Response> addShop(
+      String uid, String shopName, String phoneNumber) async {
+    print('API: addShop');
+    http.Response res = await http.post(Uri.parse('$backendUrl:7777/add-shop'),
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8'
+        },
+        body: jsonEncode(
+            {'uid': uid, 'shopName': shopName, 'phoneNumber': phoneNumber}));
+    return res;
+  }
+
   // register
-  Future<RegisterResult> register(
+  Future<http.Response?> register(
       {required String username,
+      required String email,
       required String password,
-      String mode = 'Register'}) async {
+      required String phoneNumber,
+      String countryCode = '66',
+      String mode = 'Manager'}) async {
     if (password.length < 6) {
-      return RegisterResult(
-          message: 'password required the minimum length of 6');
+      print('register: password.length < 6');
+      return null;
     }
     http.Response res = await http.post(Uri.parse('$backendUrl/register'),
         headers: <String, String>{
           'Content-Type': 'application/json; charset=UTF-8'
         },
-        body: jsonEncode(
-            {'username': username, 'password': password, 'mode': mode}));
-    print(res);
-    return RegisterResult();
+        body: jsonEncode({
+          'username': username,
+          'password': password,
+          'email': email,
+          'phoneNumber': '+$countryCode$phoneNumber',
+          'mode': mode
+        }));
+    return res;
   }
 
   // delete everything relate to pos tokens
@@ -247,92 +282,67 @@ class API {
 
   // generate otp for pos
   Future<String> generateToken(
-      {required String shopKey, String mode = "Reception"}) async {
+      {required String shopName,
+      required String uid,
+      String mode = "Reception"}) async {
     http.Response res = await http.post(
         Uri.parse('http://jukkraputp.sytes.net:7777/generate-token'),
         headers: <String, String>{
           'Content-Type': 'application/json; charset=UTF-8'
         },
-        body: jsonEncode({'key': shopKey, 'mode': mode}));
+        body: jsonEncode({'key': shopName, 'mode': mode, 'uid': uid}));
     print(res.body);
     return jsonDecode(res.body)['OTP'];
   }
 
   // Write data to database through backend server api
-  Future<http.Response> addOrder(
-      String shopKey, Map<String, int> order, MenuList menuList) async {
-    var now = DateTime.now();
-    var orderId = '';
-    orderId += now.year.toString();
-    orderId += now.month.toString();
-    orderId += now.day.toString();
-    orderId += now.hour.toString();
-    orderId += now.minute.toString();
-    orderId += now.second.toString();
+  Future<http.Response> addOrder(food_order.Order order) async {
+    String jsonEncoded = order.toJsonEncoded();
 
-    return http.post(Uri.parse('http://jukkraputp.sytes.net:7777/add'),
-        headers: <String, String>{
-          'Content-Type': 'application/json; charset=UTF-8',
-        },
-        body: jsonEncode({
-          "shopKey": shopKey,
-          "orderId": orderId,
-          "date": now.toIso8601String(),
-          "totalAmount": getTotalAmount(order, menuList),
-          "foods": order
-        }));
-  }
-
-  // get total amount of an order
-  double getTotalAmount(Map<String, int> order, MenuList menuList) {
-    double totalAmount = 0;
-    order.forEach((key, value) {
-      String type = key.split('-')[0];
-      int index =
-          menuList.menu[type]?.indexWhere((element) => element.id == key) ?? -1;
-      var item = menuList.menu[type]![index];
-      double itemVal = 0;
-      try {
-        itemVal = double.parse(item.price) * value;
-      } on Exception catch (_) {
-        itemVal = 0;
-      }
-      totalAmount += itemVal;
-    });
-    return totalAmount;
+    print('api - addOrder: $jsonEncoded');
+    http.Response httpRes =
+        await http.post(Uri.parse('http://jukkraputp.sytes.net:7777/add'),
+            headers: <String, String>{
+              'Content-Type': 'application/json; charset=UTF-8',
+            },
+            body: jsonEncoded);
+    return httpRes;
   }
 
   // Change isFinished to True
-  Future<http.Response> finishOrder(String shopKey, String orderId) async {
+  Future<http.Response> finishOrder(
+      String shopName, String uid, String orderId) async {
     return http.post(Uri.parse('http://jukkraputp.sytes.net:7777/finish'),
         headers: <String, String>{
           'Content-Type': 'application/json; charset=UTF-8',
         },
-        body: jsonEncode(
-            <String, String>{'shopKey': shopKey, 'orderId': orderId}));
+        body: jsonEncode(<String, String>{
+          'shopName': shopName,
+          'uid': uid,
+          'orderId': orderId
+        }));
   }
 
   // Move order from realtime database to firestore
-  Future<http.Response> completeOrder(String shopKey, String orderId) async {
+  Future<http.Response> completeOrder(
+      String shopName, String uid, String orderId) async {
     return http.post(Uri.parse('http://jukkraputp.sytes.net:7777/complete'),
         headers: <String, String>{
           'Content-Type': 'application/json; charset=UTF-8',
         },
-        body: jsonEncode(
-            <String, String>{'shopKey': shopKey, 'orderId': orderId}));
+        body: jsonEncode(<String, String>{
+          'shopName': shopName,
+          'uid': uid,
+          'orderId': orderId
+        }));
   }
 
   // update new picture in firebase storage
   Future<bool> updateStorageData(
-      String shopKey, Map<String, List<Item>> obj) async {
-    for (var key in obj.keys) {
-      for (var item in obj[key]!) {
-        print(item);
-      }
-    }
+      String shopName, String uid, Map<String, List<Item>> obj) async {
+    print('updating: $obj');
     print('updating firebase');
-    shopKey = shopKey.split('_').first;
-    final shopRef = _storage.ref().child(shopKey.split('_').first);
+    final shopRef = _storage.ref().child('$uid-$shopName');
     final types = obj.keys;
     for (var type in types) {
       final typeRef = shopRef.child(type);
@@ -349,34 +359,50 @@ class API {
           if (item.delete) {
             itemRef.delete();
           } else {
-            if (item.bytes != null) await itemRef.putData(item.bytes!);
+            if (item.bytes != null) {
+              var task = await itemRef.putData(item.bytes!);
+              item.image = await task.ref.getDownloadURL();
+            }
           }
-          await updateProductInfo(shopKey, type, item.id, item.name,
-              double.parse(item.price).toDouble(),
-              delete: item.delete);
         } on FirebaseException catch (e) {
           print(e);
           return false;
         }
       }
+      await updateProductInfo(uid, shopName, type, updateList);
     }
     return true;
   }
 
   // update product info on firebase firestore
   Future<http.Response> updateProductInfo(
-      String shopKey, String type, String id, String name, double price,
-      {bool delete = false}) async {
+      String uid, String shopName, String type, List<Item> itemList) async {
+    List<Map<String, dynamic>> productList = [];
+    for (Item item in itemList) {
+      Map<String, dynamic> product = {};
+      product['id'] = item.id;
+      product['name'] = item.name;
+      product['price'] = item.price;
+      product['delete'] = item.delete;
+      product['type'] = type;
+      product['time'] = item.time;
+      product['imageUrl'] = item.image;
+      product['available'] = item.available;
+      productList.add(product);
+    }
+
+    var jsonBody = jsonEncode(<String, dynamic>{
+      'uid': uid,
+      'shopName': shopName,
+      'productList': productList
+    });
+    print('update-product: $jsonBody');
+
     return http.post(Uri.parse('$backendUrl:7777/update-product'),
         headers: <String, String>{
           'Content-Type': 'application/json; charset=UTF-8',
         },
-        body: jsonEncode(<String, dynamic>{
-          'shop_key': shopKey,
-          'type': type,
-          'id': id,
-          'product': {'name': name, 'price': price, 'delete': delete}
-        }));
+        body: jsonBody);
   }
 
   // ------------------- Manager --------------------//
@@ -386,13 +412,12 @@ class API {
     return _firestoreDB.collection(collection).doc(documentId).snapshots();
   }
 
-  Future<AppUser.User?> getUserInfo(String userId) async {
+  Future<manager_user.User?> getManagerInfo(User user) async {
     DocumentSnapshot<Object> res =
-        await _firestoreDB.collection('Manager').doc(userId).get();
+        await _firestoreDB.collection('Manager').doc(user.uid).get();
     var data = res.data();
     if (data != null) {
       var obj = jsonDecode(jsonEncode(data));
-      String name = obj['name'];
       List<String> shopList = [];
       String? receptionToken;
       String? chefToken;
@@ -416,13 +441,13 @@ class API {
           chefToken = obj['Chef'];
         }
       }
-      for (var shopKey in obj['shopList']) {
-        shopList.add(shopKey.toString());
+      for (var shopName in obj['shopList']) {
+        shopList.add(shopName.toString());
       }
 
-      AppUser.User user = AppUser.User(name, shopList,
+      manager_user.User userInfo = manager_user.User(shopList,
           receptionToken: receptionToken, chefToken: chefToken);
-      return user;
+      return userInfo;
     }
     return null;
   }

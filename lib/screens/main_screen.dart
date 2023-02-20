@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:manager/apis/api.dart';
-import 'package:manager/interfaces/manager/user.dart' as AppUser;
+import 'package:manager/interfaces/manager/user.dart' as app_user;
 import 'package:manager/screens/home.dart';
 import 'package:manager/screens/join.dart';
 
@@ -13,7 +13,7 @@ import 'package:manager/widgets/badge.dart';
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key, required this.userInfo});
 
-  final AppUser.User userInfo;
+  final app_user.User userInfo;
 
   @override
   _MainScreenState createState() => _MainScreenState();
@@ -22,10 +22,15 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   AppLifecycleState? _lastLifecycleState;
 
+  late app_user.User userInfo;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    setState(() {
+      userInfo = widget.userInfo;
+    });
   }
 
   @override
@@ -38,7 +43,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.detached) {
       API().clearToken(
-          secret: 'my_secret_1234', username: widget.userInfo.username);
+          secret: 'my_secret_1234',
+          username: FirebaseAuth.instance.currentUser!.displayName!);
     }
     setState(() {
       _lastLifecycleState = state;
@@ -46,12 +52,24 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   Future<void> logout() async {
+    // Navigator.of(context).pop();
     await FirebaseAuth.instance.signOut();
+  }
+
+  void afterAddShop(String shopName) {
+    updateShopList(shopName);
+  }
+
+  void updateShopList(String shopName) {
+    setState(() {
+      userInfo.shopList.add(shopName);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     // Size screenSize = MediaQuery.of(context).size;
+    print('Main');
     return WillPopScope(
       onWillPop: () => Future.value(false),
       child: Scaffold(
@@ -87,6 +105,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           shopList: widget.userInfo.shopList,
           receptionToken: widget.userInfo.receptionToken,
           chefToken: widget.userInfo.chefToken,
+          afterAddShop: afterAddShop,
         ),
         bottomNavigationBar: BottomAppBar(
           color: Theme.of(context).primaryColor,

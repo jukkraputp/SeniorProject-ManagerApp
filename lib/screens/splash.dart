@@ -1,7 +1,11 @@
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:manager/apis/api.dart';
+import 'package:manager/interfaces/manager/user.dart' as manager_user;
 import 'package:manager/screens/join.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:manager/screens/main_screen.dart';
 import 'package:manager/util/const.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -14,29 +18,82 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  late StreamSubscription<User?> authListener;
+  bool _auth = false;
+  bool _loggedIn = false;
+  late manager_user.User userInfo;
+
   startTimeout() {
     return Timer(const Duration(seconds: 2), changeScreen);
   }
 
   changeScreen() async {
+    setState(() {
+      _loggedIn = _auth;
+    });
     Navigator.of(context).push(
       MaterialPageRoute(
           builder: (BuildContext context) {
-            return const JoinApp();
+            return _auth ? MainScreen(userInfo: userInfo) : const JoinApp();
           },
-          settings: const RouteSettings(name: 'JoinApp')),
+          settings: RouteSettings(name: _auth ? 'MainScreen' : 'JoinApp')),
     );
   }
 
   @override
   void initState() {
     super.initState();
+    authListener =
+        FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      if (user == null) {
+        print('User is currently signed out!');
+
+        if (_auth) {
+          Navigator.of(context).popUntil((route) {
+            if (route.isFirst) {
+              setState(() {
+                _auth = false;
+                if (_loggedIn) {
+                  changeScreen();
+                }
+              });
+              return true;
+            }
+            return false;
+          });
+        }
+      } else {
+        print('User is sign in!');
+        API().getManagerInfo(FirebaseAuth.instance.currentUser!).then((value) {
+          setState(() {
+            userInfo = value!;
+            _auth = true;
+            if (!_loggedIn) {
+              changeScreen();
+            }
+          });
+        });
+
+        // email verification features
+        /* if (user.emailVerified) {
+          setState(() {
+            _auth = true;
+          });
+        } else {
+          FirebaseAuth.instance.signOut();
+          setState(() {
+            _auth = false;
+          });
+        } */
+      }
+    });
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
     startTimeout();
   }
 
   @override
   Widget build(BuildContext context) {
+    print('Splash: ${Navigator.of(context)}');
     return Scaffold(
       backgroundColor: Theme.of(context).primaryColor,
       body: Container(
@@ -71,5 +128,11 @@ class _SplashScreenState extends State<SplashScreen> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    authListener.cancel();
+    super.dispose();
   }
 }

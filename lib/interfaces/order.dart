@@ -1,28 +1,83 @@
-// ignore_for_file: prefer_initializing_formals
+import 'dart:convert';
+import 'package:manager/interfaces/item.dart';
 
 class Order {
-  bool? isFinished;
-  String? orderId;
-  double? totalAmount;
-  DateTime? date;
-  Map<String, int>? foods;
+  String uid;
+  int? orderId;
+  String shopName;
+  String phoneNumber;
+  List<ItemCounter> itemList;
+  double cost;
+  DateTime date;
+  bool isCompleted;
+  bool isFinished;
+  bool isPaid;
 
-  Order(
-      {required bool isFinished,
-      required String orderId,
-      required double totalAmount,
-      required String date,
-      required Map<String, dynamic> foods}) {
-    this.isFinished = isFinished;
-    this.orderId = orderId;
-    this.totalAmount = totalAmount;
-    this.date = DateTime.parse(date);
-    Map<String, int> temp = {};
-    var keys = foods.keys.toList();
-    keys.sort(((a, b) => a.split('-')[1].compareTo(b.split('-')[1])));
-    for (var key in keys) {
-      temp[key] = foods[key];
+  Order(this.uid, this.shopName, this.phoneNumber, this.itemList, this.cost,
+      this.date,
+      {this.isCompleted = false,
+      this.isFinished = false,
+      this.isPaid = false,
+      this.orderId});
+
+  String toJsonEncoded({Map<String, dynamic>? args}) {
+    List<Map<String, dynamic>> itemList = [];
+    for (var itemCounter in this.itemList) {
+      itemList.add({
+        'name': itemCounter.item.name,
+        'price': itemCounter.item.price,
+        'id': itemCounter.item.id,
+        'image': itemCounter.item.image,
+        'count': itemCounter.count
+      });
     }
-    this.foods = temp;
+    Map<String, dynamic> obj = {
+      'uid': uid,
+      'shopName': shopName,
+      'phoneNumber': phoneNumber,
+      'itemList': itemList,
+      'cost': cost,
+      'date': date.toIso8601String(),
+      'isCompleted': isCompleted,
+      'isFinished': isFinished,
+      'isPaid': isPaid
+    };
+    if (args != null) {
+      obj.addAll(args);
+    }
+    if (orderId != null) {
+      obj['orderId'] = orderId;
+    }
+    return json.encode(obj);
+  }
+}
+
+class PaymentStatus {
+  static String waitingForPayment = 'Waiting for payment';
+  static String waitingForPaymentConfirmation =
+      'Waiting for payment confirmation';
+  static String paymentSuccessful = 'Payment successful';
+}
+
+class FilteredOrders {
+  Map<String, List<Order>> cooking = {};
+  Map<String, List<Order>> ready = {};
+  Map<String, List<Order>> completed = {};
+
+  int length() {
+    int res = 0;
+    for (var key in cooking.keys) {
+      List list = cooking[key]!;
+      res += list.length;
+    }
+    for (var key in ready.keys) {
+      List list = cooking[key]!;
+      res += list.length;
+    }
+    for (var key in completed.keys) {
+      List list = cooking[key]!;
+      res += list.length;
+    }
+    return res;
   }
 }

@@ -2,11 +2,15 @@ import 'package:flutter/foundation.dart';
 
 class Item {
   String name;
-  String price;
+  double price;
+  double time;
   String image;
   String id;
+  bool available;
   Uint8List? bytes;
-  bool delete = false;
+  bool delete;
+  double? rating;
+  int? rater;
 
   int? idIn(List<Item> itemList) {
     for (var i = 0; i < itemList.length; i++) {
@@ -18,5 +22,22 @@ class Item {
     return null;
   }
 
-  Item(this.name, this.price, this.image, this.id, {this.bytes});
+  Item(
+      {required this.name,
+      required this.price,
+      required this.time,
+      required this.image,
+      required this.id,
+      this.available = true,
+      this.bytes,
+      this.rating,
+      this.rater,
+      this.delete = false});
+}
+
+class ItemCounter {
+  Item item;
+  int count;
+
+  ItemCounter(this.item, this.count);
 }
