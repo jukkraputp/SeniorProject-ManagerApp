@@ -11,8 +11,16 @@ import 'package:lottie/lottie.dart';
 import 'package:manager/apis/api.dart';
 
 class AddShop extends StatefulWidget {
-  const AddShop({super.key, required this.afterAddShop});
+  const AddShop(
+      {super.key,
+      required this.afterAddShop,
+      required this.position,
+      required this.center,
+      required this.marker});
 
+  final Position position;
+  final google_map.LatLng center;
+  final google_map.Marker marker;
   final void Function(String) afterAddShop;
 
   @override
@@ -22,7 +30,7 @@ class AddShop extends StatefulWidget {
 class _AddShopState extends State<AddShop> {
   final TextEditingController _nameControl = TextEditingController();
 
-  Completer<google_map.GoogleMapController> _mapController = Completer();
+  final Completer<google_map.GoogleMapController> _mapController = Completer();
 
   late google_map.Marker _marker;
   late google_map.LatLng center;
@@ -36,9 +44,7 @@ class _AddShopState extends State<AddShop> {
   }
 
   Future<void> _onMarkerDrag(google_map.LatLng newPosition) async {
-    setState(() {
-      markerPosition = newPosition;
-    });
+    _setPosition(newPosition);
   }
 
   Future<void> _onMarkerDragEnd(google_map.LatLng newPosition) async {
@@ -98,57 +104,12 @@ class _AddShopState extends State<AddShop> {
   void initState() {
     super.initState();
 
-    // Test if location services are enabled.
-    Geolocator.isLocationServiceEnabled().then((value) {
-      print('location service: $value');
-      if (!value) {
-        // Location services are not enabled don't continue
-        // accessing the position and request users of the
-        // App to enable the location services.
-      } else {
-        getPermission();
-      }
+    setState(() {
+      _position = widget.position;
+      center = widget.center;
+      _marker = widget.marker;
+      _ready = true;
     });
-  }
-
-  void getPermission() {
-    bool isGranted = false;
-    Geolocator.checkPermission().then((permission) {
-      if (permission != LocationPermission.always &&
-          permission != LocationPermission.whileInUse) {
-        Geolocator.requestPermission().then((permission) {
-          if (permission != LocationPermission.always &&
-              permission != LocationPermission.whileInUse) {
-            Navigator.of(context).pop();
-          } else {
-            isGranted = true;
-          }
-        });
-      } else {
-        isGranted = true;
-      }
-      if (isGranted) {
-        getPosition().then((value) {
-          setState(() {
-            _position = value;
-            center = google_map.LatLng(value.latitude, value.longitude);
-            _marker = google_map.Marker(
-                markerId: const google_map.MarkerId('MainMarker'),
-                icon: google_map.BitmapDescriptor.defaultMarker,
-                position: center,
-                draggable: true,
-                onDrag: _onMarkerDrag,
-                onDragEnd: _onMarkerDragEnd);
-            _ready = true;
-          });
-        });
-      }
-    });
-  }
-
-  Future<Position> getPosition() async {
-    Position position = await Geolocator.getCurrentPosition();
-    return position;
   }
 
   @override
@@ -247,10 +208,11 @@ class _AddShopState extends State<AddShop> {
                           Navigator.of(context).pop();
                           API()
                               .addShop(
-                                  FirebaseAuth.instance.currentUser!.uid,
-                                  _nameControl.text,
-                                  FirebaseAuth
-                                      .instance.currentUser!.phoneNumber!)
+                                  uid: FirebaseAuth.instance.currentUser!.uid,
+                                  shopName: _nameControl.text,
+                                  phoneNumber: FirebaseAuth
+                                      .instance.currentUser!.phoneNumber!,
+                                  latLng: _marker.position)
                               .then((value) {
                             print(value.body);
                             widget.afterAddShop(_nameControl.text);

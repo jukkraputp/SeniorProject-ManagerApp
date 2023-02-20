@@ -31,18 +31,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    String username = '';
-    String password = '';
-    User? user;
-    if (_loggedIn & (FirebaseAuth.instance.currentUser != null)) {
-      user = FirebaseAuth.instance.currentUser!;
-    } else {
-      username = _usernameControl.text;
-      password = _passwordControl.text;
-    }
-    if (widget.auth & !_loggedIn) {
-      widget.login(username: username, password: password);
-    }
     return Padding(
       padding: const EdgeInsets.fromLTRB(20.0, 0, 20, 0),
       child: ListView(
@@ -185,27 +173,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     _loggedIn = true;
                   });
                 });
-                /* User? user = FirebaseAuth.instance.currentUser;
-                if (user != null) {
-                  api.getUserInfo(user.uid).then((manager) {
-                    if (manager != null) {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (BuildContext context) {
-                            return MainScreen(
-                              userInfo: AppUser.User(
-                                  manager.username, manager.shopList),
-                            );
-                          },
-                        ),
-                      );
-                    } else {
-                      print('manager data is empty');
-                    }
-                  });
-                } else {
-                  print('please sign in!');
-                } */
               },
               child: Text(
                 "LOGIN".toUpperCase(),

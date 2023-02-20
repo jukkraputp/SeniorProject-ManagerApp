@@ -51,7 +51,7 @@ class _AddNewProductState extends State<AddNewProduct> {
   XFile? _image;
   Uint8List? _bytesImage;
   bool _saveable = false;
-  late bool _available;
+  bool _available = true;
 
   @override
   void initState() {
@@ -103,43 +103,52 @@ class _AddNewProductState extends State<AddNewProduct> {
                   child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('Category: '),
-                  SizedBox(
-                    width: spaceBetween,
+                  Row(
+                    children: <Widget>[
+                      const Text('Category: '),
+                      SizedBox(
+                        width: spaceBetween,
+                      ),
+                      DropdownButton(
+                        value: dropdownValue,
+                        icon: const Icon(Icons.arrow_downward),
+                        elevation: 16,
+                        style: const TextStyle(color: Colors.black),
+                        underline: Container(height: 2, color: Colors.black),
+                        onChanged: (String? value) {
+                          setState(() {
+                            dropdownValue = value!;
+                          });
+                        },
+                        items: widget.menuTypeList
+                            .map<DropdownMenuItem<String>>((String value) {
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(
+                              value,
+                              textAlign: TextAlign.center,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
                   ),
-                  DropdownButton(
-                    value: dropdownValue,
-                    icon: const Icon(Icons.arrow_downward),
-                    elevation: 16,
-                    style: const TextStyle(color: Colors.black),
-                    underline: Container(height: 2, color: Colors.black),
-                    onChanged: (String? value) {
-                      setState(() {
-                        dropdownValue = value!;
-                      });
-                    },
-                    items: widget.menuTypeList
-                        .map<DropdownMenuItem<String>>((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(
-                          value,
-                          textAlign: TextAlign.center,
+                  if (widget.removable)
+                    Row(
+                      children: <Widget>[
+                        VerticalDivider(
+                          width: screenSize.width * 0.1,
                         ),
-                      );
-                    }).toList(),
-                  ),
-                  VerticalDivider(
-                    width: screenSize.width * 0.1,
-                  ),
-                  const Text('Available:'),
-                  Switch(
-                      value: _available,
-                      onChanged: (bool value) {
-                        setState(() {
-                          _available = value;
-                        });
-                      })
+                        const Text('Available:'),
+                        Switch(
+                            value: _available,
+                            onChanged: (bool value) {
+                              setState(() {
+                                _available = value;
+                              });
+                            })
+                      ],
+                    ),
                 ],
               )),
 

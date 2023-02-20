@@ -19,6 +19,7 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   late StreamSubscription<User?> authListener;
+  bool _init = false;
   bool _auth = false;
   bool _loggedIn = false;
   late manager_user.User userInfo;
@@ -68,7 +69,7 @@ class _SplashScreenState extends State<SplashScreen> {
           setState(() {
             userInfo = value!;
             _auth = true;
-            if (!_loggedIn) {
+            if (!_loggedIn & !_init) {
               changeScreen();
             }
           });
@@ -89,11 +90,13 @@ class _SplashScreenState extends State<SplashScreen> {
     });
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
     startTimeout();
+    setState(() {
+      _init = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    print('Splash: ${Navigator.of(context)}');
     return Scaffold(
       backgroundColor: Theme.of(context).primaryColor,
       body: Container(

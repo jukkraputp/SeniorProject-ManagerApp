@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:manager/interfaces/omise.dart';
 import 'package:manager/interfaces/order.dart' as food_order;
@@ -208,14 +209,18 @@ class API {
   Future<http.Response> setNewType(
       String uid, String shopName, String typeName) async {
     try {
-      var ref = _storage.ref().child('$uid-$shopName/$typeName/not-in-use.txt');
-      if (await ref.getData() != null) {
-        await ref.delete();
-      }
       await _storage
           .ref()
           .child('$uid-$shopName/$typeName/foo.txt')
           .putString('foo file');
+      await _storage
+          .ref()
+          .child('$uid-$shopName/$typeName/not-in-use.txt')
+          .putString('not in use');
+      await _storage
+          .ref()
+          .child('$uid-$shopName/$typeName/not-in-use.txt')
+          .delete();
     } catch (e) {
       print('API setNewType: $e');
     }
@@ -232,14 +237,35 @@ class API {
 
   // add shop
   Future<http.Response> addShop(
-      String uid, String shopName, String phoneNumber) async {
+      {required String uid,
+      required String shopName,
+      required String phoneNumber,
+      required LatLng latLng}) async {
     print('API: addShop');
     http.Response res = await http.post(Uri.parse('$backendUrl:7777/add-shop'),
         headers: <String, String>{
           'Content-Type': 'application/json; charset=UTF-8'
         },
-        body: jsonEncode(
-            {'uid': uid, 'shopName': shopName, 'phoneNumber': phoneNumber}));
+        body: jsonEncode({
+          'uid': uid,
+          'shopName': shopName,
+          'phoneNumber': phoneNumber,
+          'latitude': latLng.latitude,
+          'longitude': latLng.longitude
+        }));
+    return res;
+  }
+
+  // delete shop
+  Future<http.Response> deleteShop(
+      {required String uid, required String shopName}) async {
+    print('API: deleteShop');
+    http.Response res = await http.post(
+        Uri.parse('$backendUrl:7777/delete-shop'),
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8'
+        },
+        body: jsonEncode({'uid': uid, 'shopName': shopName}));
     return res;
   }
 

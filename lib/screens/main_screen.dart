@@ -1,5 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart' as google_map;
 import 'package:manager/apis/api.dart';
 import 'package:manager/interfaces/manager/user.dart' as app_user;
 import 'package:manager/screens/home.dart';
@@ -52,7 +54,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   Future<void> logout() async {
-    // Navigator.of(context).pop();
     await FirebaseAuth.instance.signOut();
   }
 
@@ -60,9 +61,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     updateShopList(shopName);
   }
 
-  void updateShopList(String shopName) {
+  void afterDeleteShop(String shopName) {
+    updateShopList(shopName, mode: '-');
+  }
+
+  void updateShopList(String shopName, {String mode = '+'}) {
     setState(() {
-      userInfo.shopList.add(shopName);
+      if (mode == '+') {
+        userInfo.shopList.add(shopName);
+      } else if (mode == '-') {
+        userInfo.shopList.remove(shopName);
+      }
     });
   }
 
@@ -106,6 +115,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           receptionToken: widget.userInfo.receptionToken,
           chefToken: widget.userInfo.chefToken,
           afterAddShop: afterAddShop,
+          afterDeleteShop: afterDeleteShop,
         ),
         bottomNavigationBar: BottomAppBar(
           color: Theme.of(context).primaryColor,
@@ -124,15 +134,24 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 onPressed: () {},
               ),
               IconButton(
-                  onPressed: () => logout()
-                  /* .then((value) => Navigator.of(context).popUntil((route) {
-                            if (route.settings.name == 'JoinApp') {
-                              return true;
-                            } else {
-                              return false;
-                            }
-                          })) */
-                  ,
+                  onPressed: () => showDialog(
+                      context: context,
+                      builder: (context) {
+                        return AlertDialog(
+                          title: const Text('Logging out'),
+                          content: const Text('Are you sure?'),
+                          actions: <Widget>[
+                            TextButton(
+                                onPressed: () {
+                                  logout();
+                                },
+                                child: const Text('Logout')),
+                            TextButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                child: const Text('Cancel'))
+                          ],
+                        );
+                      }),
                   icon: const Icon(Icons.logout)),
               const SizedBox(width: 7),
             ],

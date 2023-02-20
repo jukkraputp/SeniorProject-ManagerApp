@@ -20,6 +20,8 @@ class ShopManager extends StatefulWidget {
       required this.updateMenuType,
       required this.deleteMenuType,
       required this.afterUpdate,
+      required this.deleteShop,
+      required this.afterDeleteShop,
       this.receptionToken,
       this.chefToken});
 
@@ -29,6 +31,8 @@ class ShopManager extends StatefulWidget {
   final void Function(String, String) updateMenuType;
   final void Function(String, String) deleteMenuType;
   final void Function(String) afterUpdate;
+  final Future<void> Function(String) deleteShop;
+  final void Function(String) afterDeleteShop;
   final String? receptionToken;
   final String? chefToken;
 
@@ -88,19 +92,18 @@ class _ShopManagerState extends State<ShopManager>
 
   Future<bool> setNewType(String typeName) async {
     widget.updateMenuType(widget.shopName, typeName);
-    await api.setNewType(
+    var res = await api.setNewType(
         FirebaseAuth.instance.currentUser!.uid, widget.shopName, typeName);
-    while (true) {
-      if (widget.menuTypeList.contains(typeName)) {
-        print('finished!');
-        setState(() {
-          latestId[typeName] = 0;
-          menuList.menu[typeName] = [];
-          _selectedType = typeName;
-        });
-        return true;
-      }
+    if (res.statusCode == 200) {
+      print('finished!');
+      setState(() {
+        latestId[typeName] = 0;
+        menuList.menu[typeName] = [];
+        _selectedType = typeName;
+      });
+      return true;
     }
+    return false;
   }
 
   List<Widget> createMenuTypeButtons() {
@@ -128,29 +131,31 @@ class _ShopManagerState extends State<ShopManager>
               ))));
     }
 
-    // ---------- + Button ---------- //
-    buttons.add(Container(
-      decoration:
-          const BoxDecoration(border: Border(right: BorderSide(width: 2))),
-      child: TextButton(
-          onPressed: () {
-            Navigator.of(context)
-                .push(MaterialPageRoute(builder: (BuildContext context) {
-              return AddNewType(
-                setNewType: setNewType,
-              );
-            }));
-          },
-          child: const Text('+')),
-    ));
+    if (!_editing) {
+      // ---------- + Button ---------- //
+      buttons.add(Container(
+        decoration:
+            const BoxDecoration(border: Border(right: BorderSide(width: 2))),
+        child: TextButton(
+            onPressed: () {
+              Navigator.of(context)
+                  .push(MaterialPageRoute(builder: (BuildContext context) {
+                return AddNewType(
+                  setNewType: setNewType,
+                );
+              }));
+            },
+            child: const Text('+')),
+      ));
 
-    // ---------- - Button ---------- //
-    buttons.add(TextButton(
-        onPressed: _confirmDelete,
-        child: const Icon(
-          Icons.delete,
-          color: Colors.red,
-        )));
+      // ---------- - Button ---------- //
+      buttons.add(TextButton(
+          onPressed: _selectedType != null ? _confirmDelete : null,
+          child: const Icon(
+            Icons.delete,
+            color: Colors.red,
+          )));
+    }
 
     return buttons;
   }
@@ -441,6 +446,7 @@ class _ShopManagerState extends State<ShopManager>
         _bodies = createListView();
       });
     }
+    print('types: ${widget.menuTypeList}');
     return Scaffold(
       key: _key,
       endDrawer: Drawer(
@@ -526,6 +532,46 @@ class _ShopManagerState extends State<ShopManager>
                 style: const TextStyle(fontSize: 20),
               ),
             ),
+            ListTile(
+              onTap: () {
+                showDialog(
+                    context: context,
+                    builder: ((context) {
+                      return AlertDialog(
+                        title: const Text('Deleting Shop'),
+                        content: const Text('Are you sure?'),
+                        actions: <Widget>[
+                          TextButton(
+                              onPressed: () {
+                                widget
+                                    .deleteShop(widget.shopName)
+                                    .whenComplete(() {
+                                  widget.afterDeleteShop(widget.shopName);
+                                  Navigator.of(context).popUntil((route) {
+                                    if (route.settings.name == 'MainScreen') {
+                                      return true;
+                                    }
+                                    return false;
+                                  });
+                                });
+                              },
+                              child: const Text('Delete')),
+                          TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text('Cancel'))
+                        ],
+                      );
+                    }));
+              },
+              leading: IconBadge(
+                icon: Icons.delete_forever,
+                size: iconSize,
+              ),
+              title: const Text(
+                'Delete Shop',
+                style: TextStyle(fontSize: 20),
+              ),
+            )
           ],
         ),
       ),
@@ -572,6 +618,7 @@ class _ShopManagerState extends State<ShopManager>
                                     saveProduct: saveProduct,
                                     menuTypeList: widget.menuTypeList,
                                     selectedType: _selectedType,
+                                    removable: false,
                                   );
                                 },
                               ),
