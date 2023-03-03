@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:lottie/lottie.dart';
 import 'package:manager/apis/api.dart';
 import 'package:manager/interfaces/register.dart';
 import 'package:manager/screens/main_screen.dart';
@@ -24,6 +25,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _passwordControl = TextEditingController();
   final TextEditingController _phoneNumberControl = TextEditingController();
   final API api = API();
+
+  bool _registering = false;
+  bool _showingLoader = false;
+
+  bool checkData() {
+    if (_passwordControl.text.length < 6) return false;
+    if (_usernameControl.text.isEmpty) return false;
+    if (_emailControl.text.isEmpty) return false;
+    if (_phoneNumberControl.text.isEmpty) return false;
+    return true;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -209,7 +221,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     borderRadius: BorderRadius.circular(5.0),
                   ),
-                  hintText: "Phone (PromptPay)",
+                  hintText: "Phone (ที่เชื่อมต่อกับ PromptPay)",
                   prefixIcon: const Icon(
                     Icons.phone,
                     color: Colors.black,
@@ -233,15 +245,47 @@ class _RegisterScreenState extends State<RegisterScreen> {
             height: 50.0,
             child: TextButton(
               onPressed: () {
-                widget
-                    .register(
-                        username: _usernameControl.text,
-                        password: _passwordControl.text,
-                        email: _emailControl.text,
-                        phoneNumber: _phoneNumberControl.text)
-                    .then((value) {
-                  print(value);
-                });
+                if (checkData()) {
+                  showDialog(
+                      context: context,
+                      builder: ((context) {
+                        return Center(
+                          child: Lottie.asset(
+                              'assets/animations/colors-circle-loader.json'),
+                        );
+                      }),
+                      routeSettings: const RouteSettings(name: 'Loader'));
+                  setState(() {
+                    _registering = true;
+                  });
+                  widget
+                      .register(
+                          username: _usernameControl.text,
+                          password: _passwordControl.text,
+                          email: _emailControl.text,
+                          phoneNumber: _phoneNumberControl.text)
+                      .then((value) {
+                    setState(() {
+                      _registering = false;
+                    });
+                    print(value);
+                  });
+                } else {
+                  showDialog(
+                      context: context,
+                      builder: ((context) {
+                        return AlertDialog(
+                          title: const Text('Registeration failed'),
+                          content: const Text(
+                              'Your password must have 6 or more characters'),
+                          actions: <Widget>[
+                            TextButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                child: const Text('Close'))
+                          ],
+                        );
+                      }));
+                }
               },
               child: Text(
                 "Register".toUpperCase(),

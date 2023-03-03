@@ -1,50 +1,69 @@
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:manager/interfaces/item.dart';
 import 'package:flutter/material.dart';
-import 'package:manager/screens/details.dart';
 import 'package:manager/util/const.dart';
 import 'package:manager/widgets/smooth_star_rating.dart';
 
 class CartItem extends StatelessWidget {
-  final String name;
-  final String img;
+  final String shopName;
+  ItemCounter itemCounter;
   final bool isFav;
-  final double rating;
-  final int raters;
+  final void Function(String, {Item? item, String mode}) updateBasket;
+  final bool adjustButtons;
 
-  const CartItem(
-      {Key? key,
-      required this.name,
-      required this.img,
+  CartItem(
+      {super.key,
+      required this.shopName,
+      required this.itemCounter,
       required this.isFav,
-      required this.rating,
-      required this.raters})
-      : super(key: key);
+      this.updateBasket = dummyFunction,
+      this.adjustButtons = true});
+
+  static void dummyFunction(String shopName, {Item? item, String mode = '+'}) {}
+
+  // feature
+  final bool foodOptions = false;
+
   @override
   Widget build(BuildContext context) {
+    Item item = itemCounter.item;
+    Size screenSize = MediaQuery.of(context).size;
+    double imgSize = 75;
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 4, 0, 4),
       child: InkWell(
         onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (BuildContext context) {
-                return ProductDetails();
-              },
-            ),
-          );
+          /* if (foodOptions) {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (BuildContext context) {
+                  return ProductDetails(
+                    updateBasket: updateBasket,
+                    itemCounter: itemCounter,
+                  );
+                },
+              ),
+            );
+          } */
         },
         child: Row(
           children: <Widget>[
             Padding(
               padding: const EdgeInsets.only(left: 0.0, right: 10.0),
               child: SizedBox(
-                height: MediaQuery.of(context).size.width / 3.5,
-                width: MediaQuery.of(context).size.width / 3,
+                height: screenSize.width / 3.5,
+                width: screenSize.width / 3,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(8.0),
-                  child: Image.asset(
-                    img,
-                    fit: BoxFit.cover,
-                  ),
+                  child: item.image != ''
+                      ? CachedNetworkImage(
+                          width: imgSize,
+                          height: imgSize,
+                          fit: BoxFit.cover,
+                          imageUrl: item.image)
+                      : item.bytes != null
+                          ? Image.memory(item.bytes!)
+                          : null,
                 ),
               ),
             ),
@@ -52,62 +71,86 @@ class CartItem extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                Text(
-                  name,
-                  style: const TextStyle(
-//                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
+                SizedBox(
+                  width: screenSize.width / 2,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        item.name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      // adjustment buttons
+                      Row(
+                        children: <Widget>[
+                          if (adjustButtons)
+                            IconButton(
+                                onPressed: () => updateBasket(shopName,
+                                    item: item, mode: '-'),
+                                color: Colors.black,
+                                icon: const Icon(Icons.remove_circle)),
+                          Text(
+                            'x ${itemCounter.count}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          if (adjustButtons)
+                            IconButton(
+                                onPressed: () => updateBasket(shopName,
+                                    item: item, mode: '+'),
+                                color: Colors.black,
+                                icon: const Icon(Icons.add_circle))
+                        ],
+                      )
+                    ],
                   ),
                 ),
                 const SizedBox(height: 10.0),
-                Row(
-                  children: <Widget>[
-                    SmoothStarRating(
-                      starCount: 1,
-                      color: Constants.ratingBG,
-                      allowHalfRating: true,
-                      rating: 5.0,
-                      size: 12.0,
-                    ),
-                    const SizedBox(width: 6.0),
-                    const Text(
-                      "5.0 (23 Reviews)",
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w300,
+                if (item.rating != null)
+                  Row(
+                    children: <Widget>[
+                      SmoothStarRating(
+                        starCount: 1,
+                        color: Constants.ratingBG,
+                        allowHalfRating: true,
+                        rating: 5.0,
+                        size: 12.0,
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10.0),
-                Row(
-                  children: <Widget>[
-                    const Text(
-                      "20 Pieces",
-                      style: TextStyle(
-                        fontSize: 11.0,
-                        fontWeight: FontWeight.w300,
+                      const SizedBox(width: 6.0),
+                      Text(
+                        "${item.rating} (${item.rater} Reviews)",
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w300,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10.0),
-                    Text(
-                      r"$90",
-                      style: TextStyle(
-                        fontSize: 14.0,
-                        fontWeight: FontWeight.w900,
-                        color: Theme.of(context).colorScheme.secondary,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10.0),
-                const Text(
-                  "Quantity: 1",
-                  style: TextStyle(
-                    fontSize: 11.0,
-                    fontWeight: FontWeight.w300,
+                    ],
                   ),
-                ),
+                if (item.rating != null) const SizedBox(height: 10.0),
+                SizedBox(
+                  width: screenSize.width / 2,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: <Widget>[
+                      Text(
+                        "อันละ ฿ ${itemCounter.item.price}",
+                        style: const TextStyle(
+                          fontSize: 14.0,
+                        ),
+                      ),
+                      Text(
+                        "รวม ฿ ${item.price * itemCounter.count}",
+                        style: const TextStyle(
+                          fontSize: 14.0,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
               ],
             ),
           ],

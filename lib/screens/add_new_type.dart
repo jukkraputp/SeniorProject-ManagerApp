@@ -29,7 +29,7 @@ class _AddNewTypeState extends State<AddNewType> {
       });
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('Add New Type')),
+      appBar: AppBar(title: const Text('เพิ่มหมวดหมู่ใหม่')),
       body: _saving
           ? Center(
               child:
@@ -47,7 +47,7 @@ class _AddNewTypeState extends State<AddNewType> {
                     height: spaceBetween,
                   ),
                   const Center(
-                    child: Text('Name'),
+                    child: Text('ชื่อหมวดหมู่'),
                   ),
                   Card(
                     elevation: 3.0,
@@ -77,7 +77,7 @@ class _AddNewTypeState extends State<AddNewType> {
                             ),
                             borderRadius: BorderRadius.circular(5.0),
                           ),
-                          hintText: "Name",
+                          hintText: "ชื่อหมวดหมู่",
                         ),
                         maxLines: 1,
                         controller: _nameControl,

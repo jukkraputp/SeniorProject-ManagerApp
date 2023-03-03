@@ -3,38 +3,44 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:manager/apis/api.dart';
+import 'package:manager/interfaces/history.dart';
 import 'package:manager/interfaces/item.dart';
 import 'package:manager/interfaces/menu_list.dart';
 import 'package:lottie/lottie.dart';
+import 'package:manager/interfaces/order.dart';
+import 'package:manager/interfaces/shop_info.dart';
+import 'package:manager/screens/history.dart';
 import 'package:manager/screens/product.dart';
 import 'package:manager/screens/add_new_type.dart';
+import 'package:manager/util/number.dart';
 import 'package:manager/widgets/alerts.dart';
 import 'package:manager/widgets/badge.dart';
 
 class ShopManager extends StatefulWidget {
   const ShopManager(
       {super.key,
-      required this.shopName,
+      required this.shopInfo,
       required this.menuList,
       required this.menuTypeList,
+      required this.historyList,
       required this.updateMenuType,
       required this.deleteMenuType,
       required this.afterUpdate,
       required this.deleteShop,
       required this.afterDeleteShop,
-      this.receptionToken,
-      this.chefToken});
+      required this.updateHistory});
 
-  final String shopName;
+  final ShopInfo shopInfo;
   final MenuList menuList;
   final List<String> menuTypeList;
+  final List<Order> historyList;
   final void Function(String, String) updateMenuType;
   final void Function(String, String) deleteMenuType;
   final void Function(String) afterUpdate;
   final Future<void> Function(String) deleteShop;
-  final void Function(String) afterDeleteShop;
-  final String? receptionToken;
-  final String? chefToken;
+  final void Function(ShopInfo) afterDeleteShop;
+  final Future<List<Order>> Function(ShopInfo, List<Order>, {String mode})
+      updateHistory;
 
   @override
   State<ShopManager> createState() => _ShopManagerState();
@@ -42,7 +48,9 @@ class ShopManager extends StatefulWidget {
 
 class _ShopManagerState extends State<ShopManager>
     with AutomaticKeepAliveClientMixin {
+  final GlobalKey<ScaffoldState> _key = GlobalKey();
   final API api = API();
+  late MenuList menuList;
 
   String? _selectedType;
   bool _ready = false;
@@ -50,18 +58,13 @@ class _ShopManagerState extends State<ShopManager>
   ListView _bodies = ListView();
   bool _editing = false;
   Map<String, List<Item>> needUpdateObj = {};
-  late MenuList menuList;
   Map<String, int> latestId = {};
   bool _saving = false;
-  final GlobalKey<ScaffoldState> _key = GlobalKey();
-  Map<String, String?> posToken = {};
   bool _deleting = false;
 
   @override
   void initState() {
     super.initState();
-    api.getShopMenu(
-        uid: FirebaseAuth.instance.currentUser!.uid, shopName: widget.shopName);
     Map<String, List<Item>> tempObj = {};
     Map<String, int> id = {};
     for (var type in widget.menuTypeList) {
@@ -75,27 +78,24 @@ class _ShopManagerState extends State<ShopManager>
       _menuTypeButtons = createMenuTypeButtons();
       needUpdateObj = tempObj;
       menuList = initMenu();
-      posToken['Reception'] = widget.receptionToken;
-      posToken['Chef'] = widget.chefToken;
     });
   }
 
   MenuList initMenu() {
-    MenuList newMenu = MenuList(typesList: widget.menuTypeList);
+    MenuList newMenuList = MenuList(typesList: widget.menuTypeList);
     for (var menuType in widget.menuTypeList) {
       for (var item in widget.menuList.menu[menuType]!) {
-        newMenu.menu[menuType]!.add(item);
+        newMenuList.menu[menuType]!.add(item);
       }
     }
-    return newMenu;
+    return newMenuList;
   }
 
   Future<bool> setNewType(String typeName) async {
-    widget.updateMenuType(widget.shopName, typeName);
+    widget.updateMenuType(widget.shopInfo.name, typeName);
     var res = await api.setNewType(
-        FirebaseAuth.instance.currentUser!.uid, widget.shopName, typeName);
+        FirebaseAuth.instance.currentUser!.uid, widget.shopInfo.name, typeName);
     if (res.statusCode == 200) {
-      print('finished!');
       setState(() {
         latestId[typeName] = 0;
         menuList.menu[typeName] = [];
@@ -186,9 +186,9 @@ class _ShopManagerState extends State<ShopManager>
                   });
                   api
                       .deleteType(FirebaseAuth.instance.currentUser!.uid,
-                          widget.shopName, _selectedType!)
+                          widget.shopInfo.name, _selectedType!)
                       .whenComplete(() {
-                    widget.deleteMenuType(widget.shopName, _selectedType!);
+                    widget.deleteMenuType(widget.shopInfo.name, _selectedType!);
                     setState(() {
                       _deleting = false;
                       if (widget.menuTypeList.isNotEmpty) {
@@ -245,13 +245,7 @@ class _ShopManagerState extends State<ShopManager>
 
   Future<bool> removeProduct(String type, Item item) async {
     item.delete = true;
-    print('$type, ${item.id}, ${item.name}');
-    print(needUpdateObj);
-    for (var element in needUpdateObj.keys) {
-      print(element);
-    }
     if (needUpdateObj.containsKey(type)) {
-      print('deleting item');
       List<Item> temp = needUpdateObj[type]!;
       int? index = item.idIn(temp);
       if (index != null) {
@@ -259,7 +253,6 @@ class _ShopManagerState extends State<ShopManager>
       } else {
         temp.add(item);
       }
-      print(temp);
       setState(() {
         menuList.menu[type]!.remove(item);
         needUpdateObj[type] = temp;
@@ -279,7 +272,12 @@ class _ShopManagerState extends State<ShopManager>
           itemCount: menuList.menu[_selectedType]!.length,
           itemBuilder: ((BuildContext context, int index) {
             Item item = menuList.menu[_selectedType]![index];
-            print('item-${item.name}: ${item.available}');
+            late num itemPrice;
+            if (isInteger(item.price)) {
+              itemPrice = item.price.toInt();
+            } else {
+              itemPrice = item.price;
+            }
             return Container(
                 margin:
                     const EdgeInsets.only(left: 5, top: 5, bottom: 5, right: 5),
@@ -317,8 +315,7 @@ class _ShopManagerState extends State<ShopManager>
                           menuList.menu[_selectedType]![index].name,
                           textAlign: TextAlign.center,
                         ),
-                        Text(
-                            '${menuList.menu[_selectedType]![index].price}     ')
+                        Text('$itemPrice  บาท')
                       ]),
                 ));
           }));
@@ -339,7 +336,6 @@ class _ShopManagerState extends State<ShopManager>
   void saveEdit(String type, Item item) {
     List<Item> itemList = menuList.menu[type]!;
     for (var i = 0; i < itemList.length; i++) {
-      print('itemList[i].id = ${itemList[i].id}');
       if (itemList[i].id == item.id) {
         itemList[i] = item;
         break;
@@ -358,7 +354,8 @@ class _ShopManagerState extends State<ShopManager>
       required bool available,
       Uint8List? image,
       String? url,
-      String? id}) async {
+      String? id,
+      String? productDetail}) async {
     bool exist = true;
     if (id == null) {
       exist = false;
@@ -385,24 +382,19 @@ class _ShopManagerState extends State<ShopManager>
         image: imageUrl,
         id: id!,
         bytes: image,
-        available: available);
+        available: available,
+        productDetail: productDetail);
     List<Item> updateList = needUpdateObj[type] ?? [];
     int? index = newItem.idIn(updateList);
-    print(index);
     if (index == null) {
       updateList.add(newItem);
     } else {
       updateList[index] = newItem;
     }
-    print(updateList);
-    for (var item in updateList) {
-      print('updateList: ${item.id}, ${item.name}, ${item.price}');
-    }
     setState(() {
       needUpdateObj[type] = updateList;
     });
     if (exist) {
-      print('saveEdit: saving');
       saveEdit(type, newItem);
     } else {
       saveNewItem(type, newItem);
@@ -410,9 +402,9 @@ class _ShopManagerState extends State<ShopManager>
   }
 
   Future<void> updateFirebase() async {
-    if (await api.updateStorageData(widget.shopName,
+    if (await api.updateStorageData(widget.shopInfo.name,
         FirebaseAuth.instance.currentUser!.uid, needUpdateObj)) {
-      widget.afterUpdate(widget.shopName);
+      widget.afterUpdate(widget.shopInfo.name);
       setState(() {
         _editing = false;
       });
@@ -431,22 +423,20 @@ class _ShopManagerState extends State<ShopManager>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    print('latestId: $latestId');
     double iconSize = 24;
     if ((_menuTypeButtons != []) & (_bodies != ListView()) & !_ready) {
-      print('1');
       setState(() {
         _bodies = createListView();
         _ready = true;
       });
     } else {
-      print('2');
       setState(() {
         _menuTypeButtons = createMenuTypeButtons();
         _bodies = createListView();
       });
     }
-    print('types: ${widget.menuTypeList}');
+    var _text = _Text().thai;
+
     return Scaffold(
       key: _key,
       endDrawer: Drawer(
@@ -457,6 +447,7 @@ class _ShopManagerState extends State<ShopManager>
           // Important: Remove any padding from the ListView.
           padding: EdgeInsets.zero,
           children: [
+            // Shop name
             SizedBox(
               height: MediaQuery.of(context).size.height / 5,
               child: DrawerHeader(
@@ -464,11 +455,12 @@ class _ShopManagerState extends State<ShopManager>
                   color: Colors.blue,
                 ),
                 child: Text(
-                  widget.shopName,
+                  widget.shopInfo.name,
                   style: const TextStyle(fontSize: 48),
                 ),
               ),
             ),
+            // Edit Button
             ListTile(
               onTap: () {
                 Navigator.of(context).pop();
@@ -480,73 +472,108 @@ class _ShopManagerState extends State<ShopManager>
                 icon: Icons.edit,
                 size: iconSize,
               ),
-              title: const Text(
-                'Edit',
-                style: TextStyle(fontSize: 20),
+              title: Text(
+                _text.edit,
+                style: const TextStyle(fontSize: 20),
               ),
             ),
+            // Stat
             ListTile(
-              onTap: posToken['Reception'] == null
-                  ? () async {
-                      String token = await api.generateToken(
-                          shopName: widget.shopName,
-                          uid: FirebaseAuth.instance.currentUser!.uid);
-                      setState(() {
-                        posToken['Reception'] = token;
-                      });
-                      print(token);
-                    }
-                  : null,
+              onTap: () => Navigator.of(context)
+                  .push(MaterialPageRoute(builder: ((context) {
+                return HistoryScreen(
+                  shopInfo: widget.shopInfo,
+                  listOfHistory: widget.historyList,
+                  updateHistory: widget.updateHistory,
+                );
+              }))),
               leading: IconBadge(
                 icon: Icons.receipt,
                 size: iconSize,
               ),
               title: Text(
-                posToken['Reception'] != null
-                    ? 'Reception Token: ${posToken['Reception']!}'
-                    : 'Generate POS Code (Reception)',
+                _text.stat,
                 style: const TextStyle(fontSize: 20),
               ),
             ),
+            // Gen Reception Code Button
             ListTile(
-              onTap: posToken['Chef'] == null
-                  ? () async {
-                      String token = await api.generateToken(
-                          shopName: widget.shopName,
-                          uid: FirebaseAuth.instance.currentUser!.uid,
-                          mode: 'Chef');
-                      setState(() {
-                        posToken['Chef'] = token;
-                      });
-                      print(token);
-                    }
-                  : null,
+              onTap: () async {
+                showDialog(
+                    context: context,
+                    builder: (context) {
+                      return Center(
+                        child: Lottie.asset(
+                            'assets/animations/colors-circle-loader.json'),
+                      );
+                    });
+                String token = await api.generateToken(
+                    shopName: widget.shopInfo.name,
+                    uid: FirebaseAuth.instance.currentUser!.uid);
+                setState(() {
+                  Navigator.of(context).pop();
+                  widget.shopInfo.reception = token;
+                });
+              },
               leading: IconBadge(
-                icon: Icons.food_bank,
+                icon: Icons.numbers,
                 size: iconSize,
               ),
               title: Text(
-                posToken['Chef'] != null
-                    ? 'Chef Token: ${posToken['Chef']!}'
-                    : 'Generate POS Code (Chef)',
+                widget.shopInfo.reception != null
+                    ? 'Reception Token: ${widget.shopInfo.reception}'
+                    : _text.genReceptionCode,
                 style: const TextStyle(fontSize: 20),
               ),
             ),
+            // Gen Chef Code Button
+            ListTile(
+              onTap: () async {
+                showDialog(
+                    context: context,
+                    builder: (context) {
+                      return Center(
+                        child: Lottie.asset(
+                            'assets/animations/colors-circle-loader.json'),
+                      );
+                    });
+                String token = await api.generateToken(
+                    shopName: widget.shopInfo.name,
+                    uid: FirebaseAuth.instance.currentUser!.uid,
+                    mode: 'Chef');
+                setState(() {
+                  Navigator.of(context).pop();
+                  widget.shopInfo.chef = token;
+                });
+              },
+              leading: IconBadge(
+                icon: Icons.numbers,
+                size: iconSize,
+              ),
+              title: Text(
+                widget.shopInfo.chef != null
+                    ? 'Chef Token: ${widget.shopInfo.chef}'
+                    : _text.genChefCode,
+                style: const TextStyle(fontSize: 20),
+              ),
+            ),
+
+            // Delete Shop Button
             ListTile(
               onTap: () {
                 showDialog(
                     context: context,
                     builder: ((context) {
                       return AlertDialog(
-                        title: const Text('Deleting Shop'),
-                        content: const Text('Are you sure?'),
+                        title: const Text('กำลังลบร้านค้า'),
+                        content: const Text('ยืนยันการลบ ?'),
                         actions: <Widget>[
                           TextButton(
                               onPressed: () {
                                 widget
-                                    .deleteShop(widget.shopName)
+                                    .deleteShop(widget.shopInfo.name)
                                     .whenComplete(() {
-                                  widget.afterDeleteShop(widget.shopName);
+                                  widget.afterDeleteShop(widget.shopInfo);
                                   Navigator.of(context).popUntil((route) {
                                     if (route.settings.name == 'MainScreen') {
                                       return true;
@@ -555,10 +582,10 @@ class _ShopManagerState extends State<ShopManager>
                                   });
                                 });
                               },
-                              child: const Text('Delete')),
+                              child: const Text('ลบ')),
                           TextButton(
                               onPressed: () => Navigator.of(context).pop(),
-                              child: const Text('Cancel'))
+                              child: const Text('ยกเลิก'))
                         ],
                       );
                     }));
@@ -567,9 +594,9 @@ class _ShopManagerState extends State<ShopManager>
                 icon: Icons.delete_forever,
                 size: iconSize,
               ),
-              title: const Text(
-                'Delete Shop',
-                style: TextStyle(fontSize: 20),
+              title: Text(
+                _text.delete,
+                style: const TextStyle(fontSize: 20),
               ),
             )
           ],
@@ -592,8 +619,8 @@ class _ShopManagerState extends State<ShopManager>
                 onPressed: () => Navigator.pop(context),
               ),
         centerTitle: true,
-        title: const Text(
-          "Shop Manager",
+        title: Text(
+          'ร้าน ${widget.shopInfo.name}',
         ),
         actions: <Widget>[
           _editing
@@ -681,4 +708,25 @@ class _ShopManagerState extends State<ShopManager>
 
   @override
   bool get wantKeepAlive => true;
+}
+
+class _Text {
+  _TH thai = _TH();
+  _EN englist = _EN();
+}
+
+class _TH {
+  String edit = 'แก้ไข';
+  String genReceptionCode = 'สร้างรหัสสำหรับ POS ของพนักงานต้อนรับ';
+  String genChefCode = 'สร้างรหัสสำหรับ POS ของคนทำอาหาร';
+  String stat = 'ดูข้อมูลการขาย';
+  String delete = 'ลบร้านค้านี้';
+}
+
+class _EN {
+  String edit = 'Edit';
+  String genReceptionCode = 'Generate POS Code (Reception)';
+  String genChefCode = 'Generate POS Code (Chef)';
+  String stat = 'Statistic';
+  String delete = 'Delete this shop';
 }

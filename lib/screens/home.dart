@@ -4,12 +4,12 @@ import 'package:google_maps_flutter/google_maps_flutter.dart' as google_map;
 import 'package:lottie/lottie.dart';
 import 'package:manager/apis/api.dart';
 import 'package:flutter/material.dart';
+import 'package:manager/interfaces/history.dart';
 import 'package:manager/interfaces/menu_list.dart';
+import 'package:manager/interfaces/order.dart';
+import 'package:manager/interfaces/shop_info.dart';
 import 'package:manager/screens/add_shop.dart';
 import 'package:manager/screens/shop_manager.dart';
-import 'package:manager/widgets/grid_product.dart';
-import 'package:manager/widgets/home_category.dart';
-import 'package:manager/widgets/slider_item.dart';
 import 'package:manager/util/foods.dart';
 import 'package:manager/util/categories.dart';
 import 'package:carousel_slider/carousel_slider.dart';
@@ -20,39 +20,28 @@ class Home extends StatefulWidget {
   const Home(
       {super.key,
       required this.shopList,
-      this.receptionToken,
-      this.chefToken,
       required this.afterAddShop,
       required this.afterDeleteShop});
 
-  final List<String> shopList;
-  final String? receptionToken;
-  final String? chefToken;
-  final void Function(String) afterAddShop;
-  final void Function(String) afterDeleteShop;
+  final List<ShopInfo> shopList;
+  final void Function(ShopInfo) afterAddShop;
+  final void Function(ShopInfo) afterDeleteShop;
 
   @override
   _HomeState createState() => _HomeState();
 }
 
 class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
-  List<T> map<T>(List list, Function handler) {
-    List<T> result = [];
-    for (var i = 0; i < list.length; i++) {
-      result.add(handler(i, list[i]));
-    }
-
-    return result;
-  }
-
   final API api = API();
-  Map<String, MenuList> menuListObj = {};
-  Map<String, List<String>> menuTypeListObj = {};
-  bool _widgetReady = false;
   late Position _position;
   late google_map.LatLng _center;
   late google_map.Marker _marker;
+
   bool _googleMapReady = false;
+  Map<String, MenuList> allMenuList = {};
+  Map<String, List<String>> allMenuTypeList = {};
+  Map<String, List<Order>> allHistoryList = {};
+  bool _widgetReady = false;
   bool _ready = false;
 
   @override
@@ -64,14 +53,15 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
         _widgetReady = true;
       });
     }
-    for (var shopName in widget.shopList) {
+    for (var shopInfo in widget.shopList) {
+      String shopName = shopInfo.name;
       api
           .getShopMenu(
               uid: FirebaseAuth.instance.currentUser!.uid, shopName: shopName)
           .then((value) {
         setState(() {
-          menuListObj[shopName] = value;
-          menuTypeListObj[shopName] = value.menu.keys.toList();
+          allMenuList[shopName] = value;
+          allMenuTypeList[shopName] = value.menu.keys.toList();
         });
         counter += 1;
         if (counter == widget.shopList.length) {
@@ -84,7 +74,6 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
 
     // Test if location services are enabled.
     Geolocator.isLocationServiceEnabled().then((value) {
-      print('location service: $value');
       if (!value) {
         // Location services are not enabled don't continue
         // accessing the position and request users of the
@@ -103,6 +92,23 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
     });
   }
 
+  Future<List<Order>> updateHistoryData(
+      ShopInfo shopInfo, List<Order> historyList,
+      {String mode = 'new'}) async {
+    if (mode == 'new') {
+      setState(() {
+        allHistoryList[shopInfo.name] = historyList;
+      });
+    } else if ((mode == 'add') & (allHistoryList[shopInfo.name] != null)) {
+      setState(() {
+        allHistoryList[shopInfo.name]!.addAll(historyList);
+      });
+    } else {
+      return [];
+    }
+    return allHistoryList[shopInfo.name]!;
+  }
+
   Future<bool> getPermission() async {
     bool isGranted = false;
     var permission = await Geolocator.checkPermission();
@@ -112,6 +118,7 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
       permission = await Geolocator.requestPermission();
       if (permission != LocationPermission.always &&
           permission != LocationPermission.whileInUse) {
+        // ignore: use_build_context_synchronously
         Navigator.of(context).pop();
       } else {
         isGranted = true;
@@ -137,18 +144,17 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
   Future<void> updateMenuList(String shopName) async {
     MenuList menuList = await api.getShopMenu(
         uid: FirebaseAuth.instance.currentUser!.uid, shopName: shopName);
-    print(menuList.menu.keys);
     setState(() {
-      menuListObj[shopName] = menuList;
-      menuTypeListObj[shopName] = menuList.menu.keys.toList();
+      allMenuList[shopName] = menuList;
+      allMenuTypeList[shopName] = menuList.menu.keys.toList();
     });
   }
 
   void updateMenuTypeList(String shopName, String typeName) {
-    if (menuTypeListObj.containsKey(shopName)) {
+    if (allMenuTypeList.containsKey(shopName)) {
       setState(() {
-        menuTypeListObj[shopName]!.add(typeName);
-        menuListObj[shopName]!.menu[typeName] = [];
+        allMenuTypeList[shopName]!.add(typeName);
+        allMenuList[shopName]!.menu[typeName] = [];
       });
     } else {
       print('"$shopName" not found');
@@ -157,23 +163,31 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
 
   void deleteMenuType(String shopName, String typeName) {
     setState(() {
-      menuTypeListObj[shopName]!.remove(typeName);
+      allMenuTypeList[shopName]!.remove(typeName);
     });
   }
 
   void afterAddShop(String shopName) {
-    widget.afterAddShop(shopName);
+    late ShopInfo shopInfo;
+    for (var element in widget.shopList) {
+      if (element.name == shopName) {
+        shopInfo = element;
+        break;
+      }
+    }
+    widget.afterAddShop(shopInfo);
     setState(() {
-      menuListObj[shopName] = MenuList();
-      menuTypeListObj[shopName] = [];
+      allMenuList[shopName] = MenuList();
+      allMenuTypeList[shopName] = [];
     });
   }
 
-  void afterDeleteShop(String shopName) {
-    widget.afterDeleteShop(shopName);
+  void afterDeleteShop(ShopInfo shopInfo) {
+    widget.afterDeleteShop(shopInfo);
+    String shopName = shopInfo.name;
     setState(() {
-      menuListObj.remove(shopName);
-      menuTypeListObj.remove(shopName);
+      allMenuList.remove(shopName);
+      allMenuTypeList.remove(shopName);
     });
   }
 
@@ -186,7 +200,6 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
   Widget build(BuildContext context) {
     super.build(context);
     Size screenSize = MediaQuery.of(context).size;
-    print('Home - _widgetReady: $_widgetReady');
     return _ready
         ? Scaffold(
             body: Padding(
@@ -214,32 +227,38 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
                                         builder: (BuildContext context) {
                                           late MenuList menuList;
                                           List<String> menuTypeList = [];
-                                          if (menuListObj[
-                                                  widget.shopList[index]] !=
+                                          List<Order> historyList = [];
+                                          if (allMenuList[widget
+                                                  .shopList[index].name] !=
                                               null) {
-                                            menuList = menuListObj[
-                                                widget.shopList[index]]!;
+                                            menuList = allMenuList[
+                                                widget.shopList[index].name]!;
                                           } else {
                                             menuList = MenuList();
                                           }
-                                          if (menuTypeListObj[
-                                                  widget.shopList[index]] !=
+                                          if (allMenuTypeList[widget
+                                                  .shopList[index].name] !=
                                               null) {
-                                            menuTypeList = menuTypeListObj[
-                                                widget.shopList[index]]!;
+                                            menuTypeList = allMenuTypeList[
+                                                widget.shopList[index].name]!;
+                                          }
+                                          if (allHistoryList[widget
+                                                  .shopList[index].name] !=
+                                              null) {
+                                            historyList = allHistoryList[
+                                                widget.shopList[index].name]!;
                                           }
                                           return ShopManager(
-                                            shopName: widget.shopList[index],
+                                            shopInfo: widget.shopList[index],
                                             menuList: menuList,
                                             menuTypeList: menuTypeList,
+                                            historyList: historyList,
                                             updateMenuType: updateMenuTypeList,
                                             deleteMenuType: deleteMenuType,
                                             afterUpdate: updateMenuList,
                                             deleteShop: deleteShop,
                                             afterDeleteShop: afterDeleteShop,
-                                            receptionToken:
-                                                widget.receptionToken,
-                                            chefToken: widget.chefToken,
+                                            updateHistory: updateHistoryData,
                                           );
                                         },
                                       ),
@@ -251,8 +270,7 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
                                             borderRadius:
                                                 BorderRadius.circular(30.0))),
                                   ),
-                                  child: Text(
-                                      widget.shopList[index].split('_').first)),
+                                  child: Text(widget.shopList[index].name)),
                             ),
                             SizedBox(
                               height: (screenSize.height / 4 -

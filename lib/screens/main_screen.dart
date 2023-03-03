@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' as google_map;
 import 'package:manager/apis/api.dart';
 import 'package:manager/interfaces/manager/user.dart' as app_user;
+import 'package:manager/interfaces/shop_info.dart';
 import 'package:manager/screens/home.dart';
 import 'package:manager/screens/join.dart';
 
@@ -57,20 +58,20 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     await FirebaseAuth.instance.signOut();
   }
 
-  void afterAddShop(String shopName) {
-    updateShopList(shopName);
+  void afterAddShop(ShopInfo shopInfo) {
+    updateShopList(shopInfo);
   }
 
-  void afterDeleteShop(String shopName) {
-    updateShopList(shopName, mode: '-');
+  void afterDeleteShop(ShopInfo shopInfo) {
+    updateShopList(shopInfo, mode: '-');
   }
 
-  void updateShopList(String shopName, {String mode = '+'}) {
+  void updateShopList(ShopInfo shopInfo, {String mode = '+'}) {
     setState(() {
       if (mode == '+') {
-        userInfo.shopList.add(shopName);
+        userInfo.shopList.add(shopInfo);
       } else if (mode == '-') {
-        userInfo.shopList.remove(shopName);
+        userInfo.shopList.remove(shopInfo);
       }
     });
   }
@@ -78,7 +79,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     // Size screenSize = MediaQuery.of(context).size;
-    print('Main');
     return WillPopScope(
       onWillPop: () => Future.value(false),
       child: Scaffold(
@@ -112,8 +112,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         ),
         body: Home(
           shopList: widget.userInfo.shopList,
-          receptionToken: widget.userInfo.receptionToken,
-          chefToken: widget.userInfo.chefToken,
           afterAddShop: afterAddShop,
           afterDeleteShop: afterDeleteShop,
         ),

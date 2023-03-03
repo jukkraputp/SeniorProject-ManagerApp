@@ -4,6 +4,7 @@ import 'package:manager/interfaces/item.dart';
 class Order {
   String uid;
   int? orderId;
+  String ownerUID;
   String shopName;
   String phoneNumber;
   List<ItemCounter> itemList;
@@ -13,31 +14,42 @@ class Order {
   bool isFinished;
   bool isPaid;
 
-  Order(this.uid, this.shopName, this.phoneNumber, this.itemList, this.cost,
-      this.date,
-      {this.isCompleted = false,
+  Order(
+      {required this.uid,
+      required this.ownerUID,
+      required this.shopName,
+      required this.phoneNumber,
+      required this.itemList,
+      required this.cost,
+      required this.date,
+      this.isCompleted = false,
       this.isFinished = false,
       this.isPaid = false,
       this.orderId});
 
   String toJsonEncoded({Map<String, dynamic>? args}) {
     List<Map<String, dynamic>> itemList = [];
+    double totalTime = 0;
     for (var itemCounter in this.itemList) {
       itemList.add({
         'name': itemCounter.item.name,
         'price': itemCounter.item.price,
+        'time': itemCounter.item.time,
         'id': itemCounter.item.id,
         'image': itemCounter.item.image,
         'count': itemCounter.count
       });
+      totalTime += itemCounter.item.time;
     }
     Map<String, dynamic> obj = {
       'uid': uid,
+      'ownerUID': ownerUID,
       'shopName': shopName,
-      'phoneNumber': phoneNumber,
+      'shopPhoneNumber': phoneNumber,
       'itemList': itemList,
       'cost': cost,
-      'date': date.toIso8601String(),
+      'totalTime': totalTime,
+      'date': date.toLocal(),
       'isCompleted': isCompleted,
       'isFinished': isFinished,
       'isPaid': isPaid
@@ -80,4 +92,11 @@ class FilteredOrders {
     }
     return res;
   }
+}
+
+class OrderQueue {
+  int currentOrder;
+  num time;
+
+  OrderQueue({required this.currentOrder, required this.time});
 }

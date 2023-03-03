@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 import 'package:manager/apis/api.dart';
 import 'package:manager/interfaces/network.dart';
 import 'package:manager/interfaces/register.dart';
@@ -26,8 +28,8 @@ class _JoinAppState extends State<JoinApp> with SingleTickerProviderStateMixin {
   final API api = API();
 
   late TabController _tabController;
+  late StreamSubscription<User?> authListener;
   bool _auth = false;
-  bool navigated = false;
   // late StreamSubscription<User?> authListener;
 
   /* Map _source = {ConnectivityResult.none: false};
@@ -40,6 +42,18 @@ class _JoinAppState extends State<JoinApp> with SingleTickerProviderStateMixin {
     _tabController = TabController(vsync: this, initialIndex: 0, length: 2);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual,
         overlays: SystemUiOverlay.values);
+
+    /* authListener = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user != null) {
+        setState(() {
+          _auth = true;
+        });
+      } else {
+        setState(() {
+          _auth = false;
+        });
+      }
+    }); */
   }
 
   Future<User?> login({String username = '', String password = ''}) async {
@@ -97,7 +111,30 @@ class _JoinAppState extends State<JoinApp> with SingleTickerProviderStateMixin {
           email: email,
           password: password,
           phoneNumber: phoneNumber);
-      print(res);
+      Map<String, dynamic> resBody = json.decode(res.body);
+      if (!resBody['status']) {
+        bool _stop = false;
+        showDialog(
+            context: context,
+            builder: ((context) {
+              return AlertDialog(
+                title: const Text('Registration Error'),
+                content: Text(resBody['message']),
+                actions: <Widget>[
+                  TextButton(
+                      onPressed: () => Navigator.of(context).popUntil((route) {
+                            if (route.settings.name == 'Loader') {
+                              _stop = true;
+                              return false;
+                            }
+                            return _stop;
+                          }),
+                      child: const Text('Close'))
+                ],
+              );
+            }));
+      }
+      print(resBody);
     } on FirebaseAuthException catch (e) {
       if (e.code == 'weak-password') {
         print('The password provided is too weak.');
@@ -110,22 +147,6 @@ class _JoinAppState extends State<JoinApp> with SingleTickerProviderStateMixin {
       return RegisterResult(success: false, message: e.toString());
     }
     User? user = await login(username: username, password: password);
-    if (user != null && !user.emailVerified) {
-      // await user.sendEmailVerification();
-      /* showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text('Email Verification has been sent.'),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Close'))
-            ],
-          );
-        },
-      ); */
-    }
     return RegisterResult(success: true);
   }
 
@@ -133,17 +154,8 @@ class _JoinAppState extends State<JoinApp> with SingleTickerProviderStateMixin {
   Widget build(BuildContext context) {
     print('currentUser: ${FirebaseAuth.instance.currentUser}');
     print('auth: $_auth');
-    if (FirebaseAuth.instance.currentUser != null) {
-      api.getEmail('jukkraputp', 'jukkraputp').then((value) {
-        print('getEmail: ${value.success}');
-        if (value.success) {
-          var data = value.data;
-          print('data: ${data!["email"]}');
-        }
-      });
-    }
 
-    if (_auth & !navigated) {
+    /* if (_auth & !navigated) {
       api.getManagerInfo(FirebaseAuth.instance.currentUser!).then((value) {
         setState(() {
           navigated = true;
@@ -158,7 +170,7 @@ class _JoinAppState extends State<JoinApp> with SingleTickerProviderStateMixin {
               settings: const RouteSettings(name: 'MainScreen')),
         );
       });
-    }
+    } */
     return WillPopScope(
         child: Scaffold(
           appBar: AppBar(
@@ -208,6 +220,7 @@ class _JoinAppState extends State<JoinApp> with SingleTickerProviderStateMixin {
 
   @override
   void dispose() {
+    // authListener.cancel();
     super.dispose();
   }
 }

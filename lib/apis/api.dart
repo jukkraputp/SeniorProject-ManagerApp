@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
+import 'package:manager/interfaces/customer/user.dart' as customer;
 import 'package:manager/interfaces/omise.dart';
 import 'package:manager/interfaces/order.dart' as food_order;
 import 'package:manager/interfaces/register.dart';
@@ -28,6 +29,7 @@ class API {
 
   Future<MenuList> getShopMenu(
       {required String uid, required String shopName}) async {
+    print('get menu of $shopName');
     List<String> types = await getShopTypes(uid, shopName);
     MenuList menuList = MenuList(typesList: types);
     for (var type in types) {
@@ -37,13 +39,15 @@ class API {
           .collection(type)
           .get();
       for (var doc in querySnapshot.docs) {
-        menuList.menu[type]!.add(Item(
+        print('Item: ${doc['name']}');
+        Item item = Item(
             name: doc['name'],
             price: doc['price'],
             time: doc['time'],
             image: doc['image'],
             id: doc['id'],
-            available: doc['available']));
+            available: doc['available']);
+        menuList.menu[type]!.add(item);
       }
     }
     return menuList;
@@ -143,13 +147,130 @@ class API {
     return menuList;
   }
 
-  Future<History> getHistory(
-      String shopName, String phoneNumber, String orderDocId) async {
+  Future<List<food_order.Order>> getAllHistory(
+      {required String uid, required String shopName}) async {
+    List<food_order.Order> historyList = [];
+    List<String> dates = await getHistoryDateList(uid: uid, shopName: shopName);
+    for (var date in dates) {
+      var querySnapshot = await _firestoreDB
+          .collection('History')
+          .doc('$uid-$shopName')
+          .collection(date)
+          .get();
+      for (var doc in querySnapshot.docs) {
+        if (doc.exists) {
+          var data = doc.data();
+          List<ItemCounter> itemList = [];
+          for (var item in data['itemList']) {
+            Item newItem = Item(
+                name: item['name'],
+                price: double.parse(item['price'].toString()),
+                time: double.parse(item['time'].toString()),
+                image: item['image'],
+                id: item['id']);
+          }
+          Timestamp orderDate = data['date'];
+          DateTime datetime = DateTime.fromMillisecondsSinceEpoch(
+              orderDate.millisecondsSinceEpoch);
+          food_order.Order order = food_order.Order(
+            uid: data['uid'],
+            ownerUID: data['ownerUID'],
+            shopName: shopName,
+            phoneNumber: data['shopPhoneNumber'],
+            itemList: itemList,
+            cost: data['cost'],
+            date: datetime,
+            orderId: data['orderId'],
+            isCompleted: data['isCompleted'],
+            isPaid: data['isPaid'],
+          );
+          historyList.add(order);
+        }
+      }
+    }
+    return historyList;
+  }
+
+  Future<List<food_order.Order>> getHistoryByDate(
+      {required String uid,
+      required String shopName,
+      required String date}) async {
+    List<food_order.Order> historyList = [];
+    var querySnapshot = await _firestoreDB
+        .collection('History')
+        .doc('$uid-$shopName')
+        .collection(date)
+        .get();
+    for (var doc in querySnapshot.docs) {
+      if (doc.exists) {
+        var data = doc.data();
+        List<ItemCounter> itemList = [];
+        for (var item in data['itemList']) {
+          Item newItem = Item(
+              name: item['name'],
+              price: double.parse(item['price'].toString()),
+              time: double.parse(item['time'].toString()),
+              image: item['image'],
+              id: item['id']);
+          ItemCounter itemCounter =
+              ItemCounter(newItem, item['count'], comment: item['comment']);
+          itemList.add(itemCounter);
+        }
+        Timestamp orderDate = data['date'];
+        DateTime datetime = DateTime.fromMillisecondsSinceEpoch(
+            orderDate.millisecondsSinceEpoch);
+        food_order.Order order = food_order.Order(
+          uid: data['uid'],
+          ownerUID: data['ownerUID'],
+          shopName: shopName,
+          phoneNumber: data['shopPhoneNumber'],
+          itemList: itemList,
+          cost: data['cost'],
+          date: datetime,
+          orderId: data['orderId'],
+          isCompleted: data['isCompleted'],
+          isPaid: data['isPaid'],
+        );
+        historyList.add(order);
+      }
+    }
+    return historyList;
+  }
+
+  Future<List<String>> getHistoryDateList(
+      {required String uid, required String shopName}) async {
+    var doc =
+        await _firestoreDB.collection('History').doc('$uid-$shopName').get();
+    List<String> dates = [];
+    if (doc.exists & (doc.data() != null)) {
+      for (var date in doc.data()!['dates']) {
+        dates.add(date.toString());
+      }
+    }
+    return dates;
+  }
+
+  Future<customer.User?> getCustomerInfo(String uid) async {
+    var doc = await _firestoreDB.collection('Customer').doc(uid).get();
+    if (doc.exists) {
+      var data = doc.data() ?? {};
+      if (data.containsKey('username')) {
+        return customer.User(
+            username: data['username'], displayName: data['displayName']);
+      }
+    }
+    return null;
+  }
+
+  Future<History> getHistoryByOrderId(
+      {required String shopName,
+      required String uid,
+      required String orderDocId}) async {
     DateTime today = DateTime.now();
     String id = '${today.year}${today.month}${today.day}';
     var ref = _firestoreDB
         .collection('History')
-        .doc('$shopName-$phoneNumber')
+        .doc('$uid-$shopName')
         .collection(id)
         .doc(orderDocId);
     var doc = await ref.get();
@@ -270,18 +391,14 @@ class API {
   }
 
   // register
-  Future<http.Response?> register(
+  Future<http.Response> register(
       {required String username,
       required String email,
       required String password,
       required String phoneNumber,
       String countryCode = '66',
       String mode = 'Manager'}) async {
-    if (password.length < 6) {
-      print('register: password.length < 6');
-      return null;
-    }
-    http.Response res = await http.post(Uri.parse('$backendUrl/register'),
+    http.Response res = await http.post(Uri.parse('$backendUrl:7777/register'),
         headers: <String, String>{
           'Content-Type': 'application/json; charset=UTF-8'
         },
@@ -312,11 +429,11 @@ class API {
       required String uid,
       String mode = "Reception"}) async {
     http.Response res = await http.post(
-        Uri.parse('http://jukkraputp.sytes.net:7777/generate-token'),
+        Uri.parse('$backendUrl:7777/generate-token'),
         headers: <String, String>{
           'Content-Type': 'application/json; charset=UTF-8'
         },
-        body: jsonEncode({'key': shopName, 'mode': mode, 'uid': uid}));
+        body: jsonEncode({'shopName': shopName, 'mode': mode, 'uid': uid}));
     print(res.body);
     return jsonDecode(res.body)['OTP'];
   }
@@ -444,35 +561,40 @@ class API {
     var data = res.data();
     if (data != null) {
       var obj = jsonDecode(jsonEncode(data));
-      List<String> shopList = [];
-      String? receptionToken;
-      String? chefToken;
-      DocumentSnapshot<Object> reception =
-          await _firestoreDB.collection('OTP').doc(obj['Reception']).get();
-      if (reception.data() != null) {
-        var receptionData = jsonDecode(jsonEncode(reception.data()));
-        String jwt = receptionData['token'];
-        bool isExpired = JwtDecoder.isExpired(jwt);
-        if (!isExpired) {
-          receptionToken = obj['Reception'];
+      List<ShopInfo> shopList = [];
+      for (var shopInfo in obj['shopList']) {
+        String? receptionOTP;
+        String? chefOTP;
+        if (shopInfo['Reception'] != null) {
+          DocumentSnapshot<Map<String, dynamic>> res = await _firestoreDB
+              .collection('OTP')
+              .doc(shopInfo['Reception'])
+              .get();
+          if (res.exists) {
+            var otpData = res.data() ?? {};
+            if (!JwtDecoder.isExpired(otpData['token'])) {
+              receptionOTP = shopInfo['Reception'];
+            }
+          }
         }
-      }
-      DocumentSnapshot<Object> chef =
-          await _firestoreDB.collection('OTP').doc(obj['Chef']).get();
-      if (chef.data() != null) {
-        var chefData = jsonDecode(jsonEncode(chef.data()));
-        String jwt = chefData['token'];
-        bool isExpired = JwtDecoder.isExpired(jwt);
-        if (!isExpired) {
-          chefToken = obj['Chef'];
+        if (shopInfo['Chef'] != null) {
+          DocumentSnapshot<Map<String, dynamic>> res =
+              await _firestoreDB.collection('OTP').doc(shopInfo['Chef']).get();
+          if (res.exists) {
+            var otpData = res.data() ?? {};
+            if (!JwtDecoder.isExpired(otpData['token'])) {
+              chefOTP = shopInfo['Chef'];
+            }
+          }
         }
-      }
-      for (var shopName in obj['shopList']) {
-        shopList.add(shopName.toString());
+        shopList.add(ShopInfo(
+            uid: user.uid,
+            name: shopInfo['shopName'],
+            reception: receptionOTP,
+            chef: chefOTP));
       }
 
-      manager_user.User userInfo = manager_user.User(shopList,
-          receptionToken: receptionToken, chefToken: chefToken);
+      manager_user.User userInfo = manager_user.User(shopList);
       return userInfo;
     }
     return null;

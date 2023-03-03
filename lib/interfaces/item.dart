@@ -11,6 +11,7 @@ class Item {
   bool delete;
   double? rating;
   int? rater;
+  String? productDetail;
 
   int? idIn(List<Item> itemList) {
     for (var i = 0; i < itemList.length; i++) {
@@ -32,12 +33,18 @@ class Item {
       this.bytes,
       this.rating,
       this.rater,
-      this.delete = false});
+      this.delete = false,
+      this.productDetail});
 }
 
 class ItemCounter {
   Item item;
   int count;
+  List<String> comments = [];
 
-  ItemCounter(this.item, this.count);
+  ItemCounter(this.item, this.count, {String? comment}) {
+    if (comment != null) {
+      comments.add(comment);
+    }
+  }
 }

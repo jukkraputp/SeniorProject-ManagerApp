@@ -19,7 +19,8 @@ class AddNewProduct extends StatefulWidget {
       required double time,
       required String type,
       required bool available,
-      String? url}) saveProduct;
+      String? url,
+      String? productDetail}) saveProduct;
   final List<String> menuTypeList;
   final Item? item;
   final bool removable;
@@ -43,6 +44,7 @@ class AddNewProduct extends StatefulWidget {
 
 class _AddNewProductState extends State<AddNewProduct> {
   final TextEditingController _nameControl = TextEditingController();
+  final TextEditingController _detailControl = TextEditingController();
   final TextEditingController _priceControl = TextEditingController();
   final TextEditingController _timeControl = TextEditingController();
   final ImagePicker _picker = ImagePicker();
@@ -89,7 +91,7 @@ class _AddNewProductState extends State<AddNewProduct> {
     double imageSize = 150;
     return Scaffold(
         appBar: AppBar(
-          title: const Text('Product'),
+          title: const Text('สินค้า'),
         ),
         body: GestureDetector(
           onTap: () {
@@ -105,7 +107,7 @@ class _AddNewProductState extends State<AddNewProduct> {
                 children: [
                   Row(
                     children: <Widget>[
-                      const Text('Category: '),
+                      const Text('หมวดหมู่: '),
                       SizedBox(
                         width: spaceBetween,
                       ),
@@ -139,7 +141,7 @@ class _AddNewProductState extends State<AddNewProduct> {
                         VerticalDivider(
                           width: screenSize.width * 0.1,
                         ),
-                        const Text('Available:'),
+                        const Text('เปิดขาย:'),
                         Switch(
                             value: _available,
                             onChanged: (bool value) {
@@ -157,7 +159,7 @@ class _AddNewProductState extends State<AddNewProduct> {
                 height: spaceBetween,
               ),
               const Center(
-                child: Text('Name'),
+                child: Text('ชื่อ'),
               ),
               Card(
                 elevation: 3.0,
@@ -187,10 +189,52 @@ class _AddNewProductState extends State<AddNewProduct> {
                         ),
                         borderRadius: BorderRadius.circular(5.0),
                       ),
-                      hintText: "Name",
+                      hintText: "ชื่อ",
                     ),
                     maxLines: 1,
                     controller: _nameControl,
+                  ),
+                ),
+              ),
+              // ---------- Detail ----------------- //
+              SizedBox(
+                height: spaceBetween,
+              ),
+              const Center(
+                child: Text('รายละเอียด'),
+              ),
+              Card(
+                elevation: 3.0,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.all(
+                      Radius.circular(5.0),
+                    ),
+                  ),
+                  child: TextField(
+                    style: const TextStyle(
+                      fontSize: 15.0,
+                      color: Colors.black,
+                    ),
+                    decoration: InputDecoration(
+                      contentPadding: const EdgeInsets.all(10.0),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(5.0),
+                        borderSide: const BorderSide(
+                          color: Colors.white,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: const BorderSide(
+                          color: Colors.white,
+                        ),
+                        borderRadius: BorderRadius.circular(5.0),
+                      ),
+                      hintText: "รายละเอียด",
+                    ),
+                    maxLines: 1,
+                    controller: _detailControl,
                   ),
                 ),
               ),
@@ -199,7 +243,7 @@ class _AddNewProductState extends State<AddNewProduct> {
                 height: spaceBetween,
               ),
               const Center(
-                child: Text('Price'),
+                child: Text('ราคา'),
               ),
               Card(
                 elevation: 3.0,
@@ -229,7 +273,7 @@ class _AddNewProductState extends State<AddNewProduct> {
                         ),
                         borderRadius: BorderRadius.circular(5.0),
                       ),
-                      hintText: "Price",
+                      hintText: "ราคา",
                     ),
                     maxLines: 1,
                     controller: _priceControl,
@@ -241,7 +285,7 @@ class _AddNewProductState extends State<AddNewProduct> {
                 height: spaceBetween,
               ),
               const Center(
-                child: Text('Time (Minute)'),
+                child: Text('เวลาที่ใช้ในการปรุงอาหาร (นาที)'),
               ),
               Card(
                 elevation: 3.0,
@@ -271,7 +315,7 @@ class _AddNewProductState extends State<AddNewProduct> {
                         ),
                         borderRadius: BorderRadius.circular(5.0),
                       ),
-                      hintText: "Time (Minute)",
+                      hintText: "เวลาที่ใช้ในการปรุงอาหาร (นาที)",
                     ),
                     maxLines: 1,
                     controller: _timeControl,
@@ -359,7 +403,8 @@ class _AddNewProductState extends State<AddNewProduct> {
                                 price: price,
                                 time: time,
                                 image: _bytesImage,
-                                available: _available)
+                                available: _available,
+                                productDetail: _detailControl.text)
                             .then((value) {
                           Navigator.of(context).pop();
                         });
@@ -425,7 +470,7 @@ class _AddNewProductState extends State<AddNewProduct> {
                           width: spaceBetween / 2,
                         ),
                         const Text(
-                          'Remove',
+                          'ลบสินค้าชิ้นนี้',
                           style: TextStyle(color: Colors.white),
                         )
                       ],
