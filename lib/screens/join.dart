@@ -57,7 +57,6 @@ class _JoinAppState extends State<JoinApp> with SingleTickerProviderStateMixin {
   }
 
   Future<User?> login({String username = '', String password = ''}) async {
-    User? user;
     try {
       getEmailResult getEmail = await api.getEmail(username, password);
       String? email;
@@ -75,7 +74,7 @@ class _JoinAppState extends State<JoinApp> with SingleTickerProviderStateMixin {
             _auth = true;
           });
         }
-        return user;
+        return credential.user;
       } else {
         print('sign in error');
         return null;
@@ -92,7 +91,6 @@ class _JoinAppState extends State<JoinApp> with SingleTickerProviderStateMixin {
       print('login');
       print(e);
     }
-    return user;
   }
 
   Future<RegisterResult> register(

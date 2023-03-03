@@ -58,7 +58,7 @@ class ManagerApp extends StatelessWidget {
         navigatorKey: appProvider.navigatorKey,
         title: Constants.appName,
         theme: appProvider.theme,
-        darkTheme: Constants.darkTheme,
+        // darkTheme: Constants.darkTheme,
         home: SplashScreen(debug: true),
       );
     });

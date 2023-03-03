@@ -9,7 +9,7 @@ import 'package:manager/screens/main_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final bool auth;
-  final Future<dynamic> Function({String username, String password}) login;
+  final Future<User?> Function({String username, String password}) login;
 
   const LoginScreen({super.key, required this.auth, required this.login});
 
@@ -169,9 +169,28 @@ class _LoginScreenState extends State<LoginScreen> {
                         username: _usernameControl.text,
                         password: _passwordControl.text)
                     .then((value) {
-                  setState(() {
-                    _loggedIn = true;
-                  });
+                  print('Login Result: $value');
+                  if (value == null) {
+                    showDialog(
+                        context: context,
+                        builder: ((context) {
+                          return AlertDialog(
+                            title: const Text('Wrong username or password'),
+                            actions: <Widget>[
+                              TextButton(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  child: const Text('Close'))
+                            ],
+                          );
+                        }));
+                    setState(() {
+                      _loggedIn = false;
+                    });
+                  } else {
+                    setState(() {
+                      _loggedIn = true;
+                    });
+                  }
                 });
               },
               child: Text(
