@@ -570,6 +570,14 @@ class _ShopManagerState extends State<ShopManager>
                         actions: <Widget>[
                           TextButton(
                               onPressed: () {
+                                showDialog(
+                                    context: context,
+                                    builder: (context) {
+                                      return Center(
+                                        child: Lottie.asset(
+                                            'assets/animations/colors-circle-loader.json'),
+                                      );
+                                    });
                                 widget
                                     .deleteShop(widget.shopInfo.name)
                                     .whenComplete(() {

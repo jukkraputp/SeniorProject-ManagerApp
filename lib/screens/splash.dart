@@ -98,6 +98,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: Theme.of(context).primaryColor,
       body: Container(
         margin: const EdgeInsets.only(left: 40.0, right: 40.0),

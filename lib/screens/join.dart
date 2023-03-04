@@ -68,6 +68,7 @@ class _JoinAppState extends State<JoinApp> with SingleTickerProviderStateMixin {
       final UserCredential credential = await FirebaseAuth.instance
           .signInWithEmailAndPassword(email: '$email', password: password);
       print('logged in');
+      print(credential);
       if (credential.user != null) {
         if (credential.user!.emailVerified) {
           setState(() {
@@ -171,6 +172,7 @@ class _JoinAppState extends State<JoinApp> with SingleTickerProviderStateMixin {
     } */
     return WillPopScope(
         child: Scaffold(
+          resizeToAvoidBottomInset: false,
           appBar: AppBar(
             automaticallyImplyLeading: false,
             title: Center(

@@ -24,7 +24,7 @@ class Home extends StatefulWidget {
       required this.afterDeleteShop});
 
   final List<ShopInfo> shopList;
-  final void Function(ShopInfo) afterAddShop;
+  final Future<void> Function(String) afterAddShop;
   final void Function(ShopInfo) afterDeleteShop;
 
   @override
@@ -167,15 +167,8 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
     });
   }
 
-  void afterAddShop(String shopName) {
-    late ShopInfo shopInfo;
-    for (var element in widget.shopList) {
-      if (element.name == shopName) {
-        shopInfo = element;
-        break;
-      }
-    }
-    widget.afterAddShop(shopInfo);
+  Future<void> afterAddShop(String shopName) async {
+    widget.afterAddShop(shopName);
     setState(() {
       allMenuList[shopName] = MenuList();
       allMenuTypeList[shopName] = [];
@@ -202,6 +195,7 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
     Size screenSize = MediaQuery.of(context).size;
     return _ready
         ? Scaffold(
+            resizeToAvoidBottomInset: false,
             body: Padding(
                 padding: const EdgeInsets.fromLTRB(10.0, 0, 10.0, 0),
                 child: ListView.builder(

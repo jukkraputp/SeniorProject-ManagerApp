@@ -21,7 +21,7 @@ class AddShop extends StatefulWidget {
   final Position position;
   final google_map.LatLng center;
   final google_map.Marker marker;
-  final void Function(String) afterAddShop;
+  final Future<void> Function(String) afterAddShop;
 
   @override
   State<AddShop> createState() => _AddShopState();
@@ -115,6 +115,7 @@ class _AddShopState extends State<AddShop> {
   @override
   Widget build(BuildContext context) {
     Size screenSize = MediaQuery.of(context).size;
+    print('screenSize: $screenSize');
     return _ready
         ? GestureDetector(
             onTap: () {
@@ -122,113 +123,137 @@ class _AddShopState extends State<AddShop> {
             },
             child: Padding(
                 padding: const EdgeInsets.all(5),
-                child: Container(
-                  constraints:
-                      BoxConstraints(maxHeight: screenSize.height * 0.8),
-                  child: Column(
-                    children: <Widget>[
-                      // ---------- Shop Name ----------------- //
-                      SizedBox(
-                        height: screenSize.height * 0.01,
-                      ),
-                      const Center(
-                        child: Text('Shop Name'),
-                      ),
-                      Card(
-                        elevation: 3.0,
-                        child: Container(
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.all(
-                              Radius.circular(5.0),
-                            ),
-                          ),
-                          child: TextField(
-                            style: const TextStyle(
-                              fontSize: 15.0,
-                              color: Colors.black,
-                            ),
-                            decoration: InputDecoration(
-                              contentPadding: const EdgeInsets.all(10.0),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(5.0),
-                                borderSide: const BorderSide(
-                                  color: Colors.white,
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderSide: const BorderSide(
-                                  color: Colors.white,
-                                ),
-                                borderRadius: BorderRadius.circular(5.0),
-                              ),
-                              hintText: "Shop Name",
-                            ),
-                            maxLines: 1,
-                            controller: _nameControl,
+                child: Scaffold(
+                  resizeToAvoidBottomInset: false,
+                  body: Container(
+                    constraints:
+                        BoxConstraints(maxHeight: screenSize.height * 0.8),
+                    child: Column(
+                      children: <Widget>[
+                        // ---------- Shop Name ----------------- //
+                        const Expanded(
+                          flex: 1,
+                          child: Center(
+                            child: Text('ชื่อร้านค้า'),
                           ),
                         ),
-                      ),
-                      SizedBox(
-                        height: screenSize.height * 0.025,
-                      ),
-                      // ---------- Google Map  ---------- //
-                      Container(
-                        constraints:
-                            BoxConstraints(maxHeight: screenSize.height * 0.5),
-                        child: google_map.GoogleMap(
-                          onMapCreated: _onMapCreated,
-                          initialCameraPosition: google_map.CameraPosition(
-                              target: google_map.LatLng(
-                                  _position?.latitude ?? 20,
-                                  _position?.longitude ?? 100),
-                              zoom: _zoom),
-                          onCameraMove: (position) {
-                            print('zoom: ${position.zoom}');
-                            setState(() {
-                              _zoom = position.zoom;
-                            });
-                          },
-                          markers: <google_map.Marker>{_marker},
-                          onTap: (argument) {
-                            print('latlng = $argument');
-                            _setPosition(argument);
-                          },
-                        ),
-                      ),
-                      SizedBox(
-                        height: screenSize.height * 0.025,
-                      ),
-                      // ---------- Save Button ---------- //
-                      SizedBox(
-                        width: screenSize.width * 0.25,
-                        height: screenSize.height * 0.05,
-                        child: TextButton(
-                            style: TextButton.styleFrom(
-                                backgroundColor: Colors.green),
-                            onPressed: () {
-                              if (_nameControl.text != '') {
-                                Navigator.of(context).pop();
-                                API()
-                                    .addShop(
-                                        uid: FirebaseAuth
-                                            .instance.currentUser!.uid,
-                                        shopName: _nameControl.text,
-                                        phoneNumber: FirebaseAuth
-                                            .instance.currentUser!.phoneNumber!,
-                                        latLng: _marker.position)
-                                    .then((value) {
-                                  print(value.body);
-                                  widget.afterAddShop(_nameControl.text);
-                                });
-                              }
-                            },
-                            child: const Text(
-                              'Confirm',
-                              style: TextStyle(color: Colors.white),
+
+                        Expanded(
+                            flex: 2,
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 5),
+                              child: Card(
+                                elevation: 3.0,
+                                child: Container(
+                                  decoration: const BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.all(
+                                      Radius.circular(5.0),
+                                    ),
+                                  ),
+                                  child: TextField(
+                                    style: const TextStyle(
+                                      fontSize: 15.0,
+                                      color: Colors.black,
+                                    ),
+                                    decoration: InputDecoration(
+                                      contentPadding:
+                                          const EdgeInsets.all(10.0),
+                                      border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(5.0),
+                                        borderSide: const BorderSide(
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderSide: const BorderSide(
+                                          color: Colors.white,
+                                        ),
+                                        borderRadius:
+                                            BorderRadius.circular(5.0),
+                                      ),
+                                      hintText: "ชื่อร้านค้า",
+                                    ),
+                                    maxLines: 1,
+                                    controller: _nameControl,
+                                  ),
+                                ),
+                              ),
                             )),
-                      ),
-                    ],
+
+                        // ---------- Google Map  ---------- //
+                        Expanded(
+                            flex: 14,
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 5),
+                              child: google_map.GoogleMap(
+                                onMapCreated: _onMapCreated,
+                                initialCameraPosition:
+                                    google_map.CameraPosition(
+                                        target: google_map.LatLng(
+                                            _position?.latitude ?? 20,
+                                            _position?.longitude ?? 100),
+                                        zoom: _zoom),
+                                onCameraMove: (position) {
+                                  print('zoom: ${position.zoom}');
+                                  setState(() {
+                                    _zoom = position.zoom;
+                                  });
+                                },
+                                markers: <google_map.Marker>{_marker},
+                                onTap: (argument) {
+                                  print('latlng = $argument');
+                                  _setPosition(argument);
+                                },
+                              ),
+                            )),
+
+                        // ---------- Save Button ---------- //
+                        Expanded(
+                            flex: 2,
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 5),
+                              child: TextButton(
+                                  style: TextButton.styleFrom(
+                                      backgroundColor: Colors.green),
+                                  onPressed: () {
+                                    if (_nameControl.text != '') {
+                                      showDialog(
+                                          context: context,
+                                          builder: (context) {
+                                            return Center(
+                                              child: Lottie.asset(
+                                                  'assets/animations/colors-circle-loader.json'),
+                                            );
+                                          });
+                                      API()
+                                          .addShop(
+                                              uid: FirebaseAuth
+                                                  .instance.currentUser!.uid,
+                                              shopName: _nameControl.text,
+                                              phoneNumber: FirebaseAuth.instance
+                                                  .currentUser!.phoneNumber!,
+                                              latLng: _marker.position)
+                                          .then((value) {
+                                        print(value.body);
+
+                                        widget
+                                            .afterAddShop(_nameControl.text)
+                                            .whenComplete(() {
+                                          Navigator.of(context).pop();
+                                          Navigator.of(context).pop();
+                                        });
+                                      });
+                                    }
+                                  },
+                                  child: const Text(
+                                    'Confirm',
+                                    style: TextStyle(color: Colors.white),
+                                  )),
+                            )),
+                      ],
+                    ),
                   ),
                 )))
         : Center(

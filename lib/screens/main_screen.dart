@@ -58,7 +58,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     await FirebaseAuth.instance.signOut();
   }
 
-  void afterAddShop(ShopInfo shopInfo) {
+  Future<void> afterAddShop(String shopName) async {
+    ShopInfo shopInfo =
+        ShopInfo(uid: FirebaseAuth.instance.currentUser!.uid, name: shopName);
     updateShopList(shopInfo);
   }
 
