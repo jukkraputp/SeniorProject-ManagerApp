@@ -189,6 +189,29 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
         uid: FirebaseAuth.instance.currentUser!.uid, shopName: shopName);
   }
 
+  void addShop() {
+    Size screenSize = MediaQuery.of(context).size;
+    showDialog(
+        context: context,
+        builder: (context) {
+          return Dialog(
+            child: SizedBox(
+                height: screenSize.height * 0.75,
+                child: _googleMapReady
+                    ? AddShop(
+                        afterAddShop: afterAddShop,
+                        position: _position,
+                        center: _center,
+                        marker: _marker,
+                      )
+                    : Center(
+                        child: Lottie.asset(
+                            'assets/animations/colors-circle-loader.json'),
+                      )),
+          );
+        });
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -201,6 +224,23 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
                 child: ListView.builder(
                   itemCount: widget.shopList.length + 1,
                   itemBuilder: (BuildContext context, int index) {
+                    if (widget.shopList.isEmpty) {
+                      return SizedBox(
+                        height: screenSize.height * 0.8,
+                        child: Center(
+                          child: TextButton(
+                            onPressed: () => addShop(),
+                            style: TextButton.styleFrom(
+                                backgroundColor: Colors.green.shade400),
+                            child: const Text(
+                              'เพิ่มร้านค้าของคุณ',
+                              style:
+                                  TextStyle(color: Colors.white, fontSize: 24),
+                            ),
+                          ),
+                        ),
+                      );
+                    }
                     if (index < widget.shopList.length) {
                       return SizedBox(
                         height: screenSize.height / 4,
@@ -292,31 +332,7 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
                                 color: Colors.green.shade400,
                               ),
                               child: IconButton(
-                                  onPressed: () {
-                                    Size screenSize =
-                                        MediaQuery.of(context).size;
-                                    showDialog(
-                                        context: context,
-                                        builder: (context) {
-                                          return Dialog(
-                                            child: SizedBox(
-                                                height:
-                                                    screenSize.height * 0.75,
-                                                child: _googleMapReady
-                                                    ? AddShop(
-                                                        afterAddShop:
-                                                            afterAddShop,
-                                                        position: _position,
-                                                        center: _center,
-                                                        marker: _marker,
-                                                      )
-                                                    : Center(
-                                                        child: Lottie.asset(
-                                                            'assets/animations/colors-circle-loader.json'),
-                                                      )),
-                                          );
-                                        });
-                                  },
+                                  onPressed: () => addShop(),
                                   style: ButtonStyle(
                                     shape: MaterialStateProperty.all(
                                         RoundedRectangleBorder(

@@ -460,23 +460,23 @@ class _ShopManagerState extends State<ShopManager>
                 ),
               ),
             ),
-            // Edit Button
-            ListTile(
-              onTap: () {
-                Navigator.of(context).pop();
-                setState(() {
-                  _editing = true;
-                });
-              },
-              leading: IconBadge(
-                icon: Icons.edit,
-                size: iconSize,
-              ),
-              title: Text(
-                _text.edit,
-                style: const TextStyle(fontSize: 20),
-              ),
-            ),
+            // // Edit Button
+            // ListTile(
+            //   onTap: () {
+            //     Navigator.of(context).pop();
+            //     setState(() {
+            //       _editing = true;
+            //     });
+            //   },
+            //   leading: IconBadge(
+            //     icon: Icons.edit,
+            //     size: iconSize,
+            //   ),
+            //   title: Text(
+            //     _text.edit,
+            //     style: const TextStyle(fontSize: 20),
+            //   ),
+            // ),
             // Stat
             ListTile(
               onTap: () => Navigator.of(context)
@@ -687,14 +687,32 @@ class _ShopManagerState extends State<ShopManager>
                           )
                         ],
                 )
-              : IconButton(
-                  icon: IconBadge(
-                    icon: Icons.menu,
-                    size: iconSize,
-                  ),
-                  onPressed: () => _key.currentState!.openEndDrawer(),
-                  tooltip: "Menu",
-                ),
+              : Padding(
+                  padding: const EdgeInsets.only(left: 10),
+                  child: Row(
+                    children: <Widget>[
+                      TextButton(
+                        onPressed: () => setState(() {
+                          _editing = true;
+                        }),
+                        style: TextButton.styleFrom(
+                            backgroundColor: Theme.of(context).backgroundColor),
+                        child: Text(
+                          'เพิ่มและแก้ไขเมนู',
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary),
+                        ),
+                      ),
+                      IconButton(
+                        icon: IconBadge(
+                          icon: Icons.menu,
+                          size: iconSize,
+                        ),
+                        onPressed: () => _key.currentState!.openEndDrawer(),
+                        tooltip: "Menu",
+                      ),
+                    ],
+                  ))
         ],
       ),
       body: (_ready & !_saving & !_deleting)
