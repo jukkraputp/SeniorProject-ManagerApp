@@ -17,7 +17,7 @@ import 'package:manager/widgets/alerts.dart';
 import 'package:manager/widgets/badge.dart';
 
 class ShopManager extends StatefulWidget {
-  const ShopManager(
+  ShopManager(
       {super.key,
       required this.shopInfo,
       required this.menuList,
@@ -32,7 +32,7 @@ class ShopManager extends StatefulWidget {
 
   final ShopInfo shopInfo;
   final MenuList menuList;
-  final List<String> menuTypeList;
+  List<String> menuTypeList;
   final List<Order> historyList;
   final void Function(String, String) updateMenuType;
   final void Function(String, String) deleteMenuType;
@@ -61,6 +61,7 @@ class _ShopManagerState extends State<ShopManager>
   Map<String, int> latestId = {};
   bool _saving = false;
   bool _deleting = false;
+  bool _hasType = false;
 
   @override
   void initState() {
@@ -95,11 +96,13 @@ class _ShopManagerState extends State<ShopManager>
     widget.updateMenuType(widget.shopInfo.name, typeName);
     var res = await api.setNewType(
         FirebaseAuth.instance.currentUser!.uid, widget.shopInfo.name, typeName);
+    print(res.statusCode);
     if (res.statusCode == 200) {
       setState(() {
         latestId[typeName] = 0;
         menuList.menu[typeName] = [];
         _selectedType = typeName;
+        _hasType = true;
       });
       return true;
     }
@@ -148,13 +151,15 @@ class _ShopManagerState extends State<ShopManager>
             child: const Text('+')),
       ));
 
-      // ---------- - Button ---------- //
-      buttons.add(TextButton(
-          onPressed: _selectedType != null ? _confirmDelete : null,
-          child: const Icon(
-            Icons.delete,
-            color: Colors.red,
-          )));
+      if (_selectedType != null) {
+        // ---------- - Button ---------- //
+        buttons.add(TextButton(
+            onPressed: _selectedType != null ? _confirmDelete : null,
+            child: const Icon(
+              Icons.delete,
+              color: Colors.red,
+            )));
+      }
     }
 
     return buttons;
@@ -191,6 +196,8 @@ class _ShopManagerState extends State<ShopManager>
                     widget.deleteMenuType(widget.shopInfo.name, _selectedType!);
                     setState(() {
                       _deleting = false;
+                      _hasType = false;
+                      menuList.menu.remove(_selectedType);
                       if (widget.menuTypeList.isNotEmpty) {
                         _selectedType = widget.menuTypeList.first;
                       } else {
@@ -423,6 +430,7 @@ class _ShopManagerState extends State<ShopManager>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    Size screenSize = MediaQuery.of(context).size;
     double iconSize = 24;
     if ((_menuTypeButtons != []) & (_bodies != ListView()) & !_ready) {
       setState(() {
@@ -436,6 +444,17 @@ class _ShopManagerState extends State<ShopManager>
       });
     }
     var _text = _Text().thai;
+
+    print(menuList.menu.keys);
+    if (menuList.menu.keys.isEmpty) {
+      setState(() {
+        _hasType = false;
+      });
+    } else {
+      setState(() {
+        _hasType = true;
+      });
+    }
 
     return Scaffold(
       key: _key,
@@ -630,105 +649,139 @@ class _ShopManagerState extends State<ShopManager>
         title: Text(
           'ร้าน ${widget.shopInfo.name}',
         ),
-        actions: <Widget>[
-          _editing
-              ? Row(
-                  children: _saving
-                      ? [
-                          Center(
-                            child: Lottie.asset(
-                                'assets/animations/colors-circle-loader.json'),
-                          )
-                        ]
-                      : [
-                          IconButton(
-                            icon: IconBadge(
-                              icon: Icons.add,
-                              size: iconSize,
-                            ),
-                            onPressed: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (BuildContext context) {
-                                  return AddNewProduct(
-                                    saveProduct: saveProduct,
-                                    menuTypeList: widget.menuTypeList,
-                                    selectedType: _selectedType,
-                                    removable: false,
-                                  );
-                                },
+        actions: _hasType
+            ? <Widget>[
+                _editing
+                    ? Row(
+                        children: _saving
+                            ? [
+                                Center(
+                                  child: Lottie.asset(
+                                      'assets/animations/colors-circle-loader.json'),
+                                )
+                              ]
+                            : [
+                                IconButton(
+                                  icon: IconBadge(
+                                    icon: Icons.add,
+                                    size: iconSize,
+                                  ),
+                                  onPressed: () => Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (BuildContext context) {
+                                        return AddNewProduct(
+                                          saveProduct: saveProduct,
+                                          menuTypeList: widget.menuTypeList,
+                                          selectedType: _selectedType,
+                                          removable: false,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  tooltip: "Add",
+                                ),
+                                IconButton(
+                                  icon: IconBadge(
+                                    icon: Icons.check,
+                                    size: iconSize,
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _saving = true;
+                                    });
+                                    updateFirebase().then((value) {
+                                      setState(() {
+                                        _saving = false;
+                                        showDialog(
+                                          context: context,
+                                          builder: (BuildContext context) {
+                                            return MyAlert().complete(
+                                                fn: () => Navigator.of(context)
+                                                    .pop());
+                                          },
+                                        );
+                                      });
+                                    });
+                                  },
+                                  tooltip: "Done",
+                                )
+                              ],
+                      )
+                    : Padding(
+                        padding: const EdgeInsets.only(left: 10),
+                        child: Row(
+                          children: <Widget>[
+                            TextButton(
+                              onPressed: () => setState(() {
+                                _editing = true;
+                              }),
+                              style: TextButton.styleFrom(
+                                  backgroundColor:
+                                      Theme.of(context).backgroundColor),
+                              child: Text(
+                                'เพิ่มและแก้ไขเมนู',
+                                style: TextStyle(
+                                    color:
+                                        Theme.of(context).colorScheme.primary),
                               ),
                             ),
-                            tooltip: "Add",
-                          ),
-                          IconButton(
-                            icon: IconBadge(
-                              icon: Icons.check,
-                              size: iconSize,
+                            IconButton(
+                              icon: IconBadge(
+                                icon: Icons.menu,
+                                size: iconSize,
+                              ),
+                              onPressed: () =>
+                                  _key.currentState!.openEndDrawer(),
+                              tooltip: "Menu",
                             ),
-                            onPressed: () {
-                              setState(() {
-                                _saving = true;
-                              });
-                              updateFirebase().then((value) {
-                                setState(() {
-                                  _saving = false;
-                                  showDialog(
-                                    context: context,
-                                    builder: (BuildContext context) {
-                                      return MyAlert().complete(
-                                          fn: () =>
-                                              Navigator.of(context).pop());
-                                    },
-                                  );
-                                });
-                              });
-                            },
-                            tooltip: "Done",
-                          )
-                        ],
-                )
-              : Padding(
-                  padding: const EdgeInsets.only(left: 10),
-                  child: Row(
-                    children: <Widget>[
-                      TextButton(
-                        onPressed: () => setState(() {
-                          _editing = true;
-                        }),
-                        style: TextButton.styleFrom(
-                            backgroundColor: Theme.of(context).backgroundColor),
-                        child: Text(
-                          'เพิ่มและแก้ไขเมนู',
-                          style: TextStyle(
-                              color: Theme.of(context).colorScheme.primary),
-                        ),
-                      ),
-                      IconButton(
-                        icon: IconBadge(
-                          icon: Icons.menu,
-                          size: iconSize,
-                        ),
-                        onPressed: () => _key.currentState!.openEndDrawer(),
-                        tooltip: "Menu",
-                      ),
-                    ],
-                  ))
-        ],
+                          ],
+                        ))
+              ]
+            : null,
       ),
-      body: (_ready & !_saving & !_deleting)
-          ? _bodies
-          : Center(
-              child:
-                  Lottie.asset('assets/animations/colors-circle-loader.json'),
+      body: _hasType
+          ? ((_ready & !_saving & !_deleting)
+              ? _bodies
+              : Center(
+                  child: Lottie.asset(
+                      'assets/animations/colors-circle-loader.json'),
+                ))
+          : Container(
+              decoration: BoxDecoration(),
+              height: screenSize.height * 0.8,
+              child: Center(
+                  child: TextButton(
+                onPressed: () {
+                  Navigator.of(context)
+                      .push(MaterialPageRoute(builder: (BuildContext context) {
+                    return AddNewType(
+                      setNewType: setNewType,
+                    );
+                  }));
+                },
+                style: TextButton.styleFrom(
+                    backgroundColor: Theme.of(context)
+                            .buttonTheme
+                            .colorScheme
+                            ?.primaryContainer ??
+                        Colors.black),
+                child: const Text(
+                  'สร้างหมวดหมู่อาหารแรกของร้าน',
+                  style: TextStyle(color: Colors.white),
+                ),
+              )),
             ),
-      bottomNavigationBar: BottomAppBar(
-        color: Theme.of(context).primaryColor,
-        shape: const CircularNotchedRectangle(),
-        child: SizedBox(
-            height: 50,
-            child: ListView(
-                scrollDirection: Axis.horizontal, children: _menuTypeButtons)),
-      ),
+      bottomNavigationBar: _hasType
+          ? BottomAppBar(
+              color: Theme.of(context).primaryColor,
+              shape: const CircularNotchedRectangle(),
+              child: SizedBox(
+                  height: 50,
+                  child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: _menuTypeButtons)),
+            )
+          : null,
     );
   }
 

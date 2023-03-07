@@ -142,8 +142,8 @@ class _HomeState extends State<Home> with AutomaticKeepAliveClientMixin<Home> {
   }
 
   Future<void> updateMenuList(String shopName) async {
-    MenuList menuList = await api.getShopMenu(
-        uid: FirebaseAuth.instance.currentUser!.uid, shopName: shopName);
+    String uid = FirebaseAuth.instance.currentUser!.uid;
+    MenuList menuList = await api.getShopMenu(uid: uid, shopName: shopName);
     setState(() {
       allMenuList[shopName] = menuList;
       allMenuTypeList[shopName] = menuList.menu.keys.toList();

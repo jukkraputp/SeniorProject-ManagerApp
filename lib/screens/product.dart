@@ -111,28 +111,32 @@ class _AddNewProductState extends State<AddNewProduct> {
                       SizedBox(
                         width: spaceBetween,
                       ),
-                      DropdownButton(
-                        value: dropdownValue,
-                        icon: const Icon(Icons.arrow_downward),
-                        elevation: 16,
-                        style: const TextStyle(color: Colors.black),
-                        underline: Container(height: 2, color: Colors.black),
-                        onChanged: (String? value) {
-                          setState(() {
-                            dropdownValue = value!;
-                          });
-                        },
-                        items: widget.menuTypeList
-                            .map<DropdownMenuItem<String>>((String value) {
-                          return DropdownMenuItem<String>(
-                            value: value,
-                            child: Text(
-                              value,
-                              textAlign: TextAlign.center,
-                            ),
-                          );
-                        }).toList(),
-                      ),
+                      widget.item == null
+                          ? DropdownButton(
+                              value: dropdownValue,
+                              icon: const Icon(Icons.arrow_downward),
+                              elevation: 16,
+                              style: const TextStyle(color: Colors.black),
+                              underline:
+                                  Container(height: 2, color: Colors.black),
+                              onChanged: (String? value) {
+                                setState(() {
+                                  dropdownValue = value!;
+                                });
+                              },
+                              items: widget.menuTypeList
+                                  .map<DropdownMenuItem<String>>(
+                                      (String value) {
+                                return DropdownMenuItem<String>(
+                                  value: value,
+                                  child: Text(
+                                    value,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                );
+                              }).toList(),
+                            )
+                          : Text(widget.selectedType ?? ''),
                     ],
                   ),
                   if (widget.removable)

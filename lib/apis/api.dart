@@ -33,21 +33,23 @@ class API {
     List<String> types = await getShopTypes(uid, shopName);
     MenuList menuList = MenuList(typesList: types);
     for (var type in types) {
-      QuerySnapshot<Map<String, dynamic>> querySnapshot = await _firestoreDB
-          .collection('Menu')
-          .doc('$uid-$shopName')
-          .collection(type)
-          .get();
-      for (var doc in querySnapshot.docs) {
-        print('Item: ${doc['name']}');
-        Item item = Item(
-            name: doc['name'],
-            price: doc['price'],
-            time: doc['time'],
-            image: doc['image'],
-            id: doc['id'],
-            available: doc['available']);
-        menuList.menu[type]!.add(item);
+      if (type.isNotEmpty) {
+        QuerySnapshot<Map<String, dynamic>> querySnapshot = await _firestoreDB
+            .collection('Menu')
+            .doc('$uid-$shopName')
+            .collection(type)
+            .get();
+        for (var doc in querySnapshot.docs) {
+          print('Item: ${doc['name']}');
+          Item item = Item(
+              name: doc['name'],
+              price: doc['price'],
+              time: doc['time'],
+              image: doc['image'],
+              id: doc['id'],
+              available: doc['available']);
+          menuList.menu[type]!.add(item);
+        }
       }
     }
     return menuList;
