@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:manager/apis/api.dart';
-import 'package:manager/interfaces/history.dart';
 import 'package:manager/interfaces/item.dart';
 import 'package:manager/interfaces/menu_list.dart';
 import 'package:lottie/lottie.dart';
@@ -528,7 +527,9 @@ class _ShopManagerState extends State<ShopManager>
                     });
                 String token = await api.generateToken(
                     shopName: widget.shopInfo.name,
-                    uid: FirebaseAuth.instance.currentUser!.uid);
+                    uid: FirebaseAuth.instance.currentUser!.uid,
+                    phoneNumber:
+                        FirebaseAuth.instance.currentUser!.phoneNumber!);
                 setState(() {
                   Navigator.of(context).pop();
                   widget.shopInfo.reception = token;
@@ -559,6 +560,8 @@ class _ShopManagerState extends State<ShopManager>
                 String token = await api.generateToken(
                     shopName: widget.shopInfo.name,
                     uid: FirebaseAuth.instance.currentUser!.uid,
+                    phoneNumber:
+                        FirebaseAuth.instance.currentUser!.phoneNumber!,
                     mode: 'Chef');
                 setState(() {
                   Navigator.of(context).pop();

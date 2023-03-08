@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/src/widgets/container.dart';
 import 'package:flutter/src/widgets/framework.dart';
 import 'package:manager/apis/api.dart';
-import 'package:manager/interfaces/history.dart';
 import 'package:manager/interfaces/order.dart';
 import 'package:manager/interfaces/shop_info.dart';
 import 'package:intl/intl.dart';

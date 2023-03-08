@@ -4,7 +4,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart' as google_map;
 import 'package:lottie/lottie.dart';
 import 'package:manager/apis/api.dart';
 import 'package:flutter/material.dart';
-import 'package:manager/interfaces/history.dart';
 import 'package:manager/interfaces/menu_list.dart';
 import 'package:manager/interfaces/order.dart';
 import 'package:manager/interfaces/shop_info.dart';

@@ -13,7 +13,6 @@ import 'package:manager/interfaces/register.dart';
 import 'package:manager/interfaces/shop_info.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:manager/interfaces/history.dart';
 import 'package:manager/interfaces/item.dart';
 import 'package:manager/interfaces/menu_list.dart';
 import 'package:http/http.dart' as http;
@@ -264,49 +263,6 @@ class API {
     return null;
   }
 
-  Future<History> getHistoryByOrderId(
-      {required String shopName,
-      required String uid,
-      required String orderDocId}) async {
-    DateTime today = DateTime.now();
-    String id = '${today.year}${today.month}${today.day}';
-    var ref = _firestoreDB
-        .collection('History')
-        .doc('$uid-$shopName')
-        .collection(id)
-        .doc(orderDocId);
-    var doc = await ref.get();
-    var data = doc.data();
-    var history = History(
-        orderId: data?['orderId'],
-        totalAmount: data?['totalAmount'],
-        date: data?['date'],
-        foods: data?['foods']);
-    return history;
-  }
-
-  Future<List<History>> getHistoryList(
-      String shopName, String phoneNumber) async {
-    final List<History> historyList = [];
-    DateTime today = DateTime.now();
-    String id = '${today.year}${today.month}${today.day}';
-    var ref = _firestoreDB
-        .collection('History')
-        .doc('$shopName-$phoneNumber')
-        .collection(id);
-    var datas = await ref.get();
-    for (var doc in datas.docs) {
-      var data = doc.data();
-      var history = History(
-          orderId: data['orderId'],
-          totalAmount: data['totalAmount'],
-          date: data['date'],
-          foods: data['foods']);
-      historyList.add(history);
-    }
-    return historyList;
-  }
-
   // Storage
 
   Future<http.Response> deleteType(
@@ -429,13 +385,19 @@ class API {
   Future<String> generateToken(
       {required String shopName,
       required String uid,
+      required String phoneNumber,
       String mode = "Reception"}) async {
     http.Response res = await http.post(
         Uri.parse('$backendUrl:7777/generate-token'),
         headers: <String, String>{
           'Content-Type': 'application/json; charset=UTF-8'
         },
-        body: jsonEncode({'shopName': shopName, 'mode': mode, 'uid': uid}));
+        body: jsonEncode({
+          'shopName': shopName,
+          'mode': mode,
+          'uid': uid,
+          'phoneNumber': phoneNumber
+        }));
     print(res.body);
     return jsonDecode(res.body)['OTP'];
   }
@@ -592,6 +554,7 @@ class API {
         shopList.add(ShopInfo(
             uid: user.uid,
             name: shopInfo['shopName'],
+            phoneNumber: user.phoneNumber!,
             reception: receptionOTP,
             chef: chefOTP));
       }
