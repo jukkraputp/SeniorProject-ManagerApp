@@ -148,7 +148,7 @@ class API {
     return menuList;
   }
 
-  Future<List<food_order.Order>> getAllHistory(
+  /* Future<List<food_order.Order>> getAllHistory(
       {required String uid, required String shopName}) async {
     List<food_order.Order> historyList = [];
     List<String> dates = await getHistoryDateList(uid: uid, shopName: shopName);
@@ -190,7 +190,7 @@ class API {
       }
     }
     return historyList;
-  }
+  } */
 
   Future<List<food_order.Order>> getHistoryByDate(
       {required String uid,

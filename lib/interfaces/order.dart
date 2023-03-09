@@ -49,7 +49,7 @@ class Order {
       'itemList': itemList,
       'cost': cost,
       'totalTime': totalTime,
-      'date': date.toLocal(),
+      'date': date.toIso8601String(),
       'isCompleted': isCompleted,
       'isFinished': isFinished,
       'isPaid': isPaid
